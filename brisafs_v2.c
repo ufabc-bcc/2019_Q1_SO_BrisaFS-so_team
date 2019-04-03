@@ -21,7 +21,7 @@
  * em um único arquivo e aumentar os limites do sistema de arquivos
  * que, para o código abaixo, são excessivamente baixos (ex. número
  * total de arquivos).
- *teste math
+ *
  */
 
 
