@@ -24,7 +24,30 @@
  *
  */
 
-//Testando Repositorio
+/*
+
+    Nota 5
+        Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco".
+            Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado
+        Armazenamento e recuperação de datas (via ls por exemplo)
+        Armazenamento e alteração direitos usando chown e chgrp
+        Aumento do número máximo de arquivos para pelo menos 1024   --FEITO
+
+    Nota 7
+        Aumento do tamanho máximo do arquivo para pelo menos 64 MB
+        Suporte à criação de diretórios
+        Exclusão de arquivos
+
+    Nota 10
+        Suporte a "discos" de tamanhos arbitrários
+        Arquivos com tamanho máximo de pelo menos 1GB
+        Controle de arquivos abertos/fechados
+
+    Nota 12
+        Funcionalidades julgadas excepcionais além das pedidas podem gerar um bônus de até 2 pontos. Converse com o professor para saber se a sua ideia é considerada excepcional e quanto ela vale.
+
+*/
+
 #define FUSE_USE_VERSION 31
 
 #include <stdio.h>
