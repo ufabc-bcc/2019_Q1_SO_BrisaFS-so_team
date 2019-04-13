@@ -35,8 +35,9 @@
 #include <string.h>
 #include <errno.h>
 
-/* Tamnanho do bloco do dispositivo */
-#define TAM_BLOCO 4096
+/* Tamnanho do bloco do dispositivo, ajustando para o Melestones 1, pede para aumentar
+para pelo menos 1024, estou aumentando para 2048*/
+#define TAM_BLOCO (sizeof(inode) * 2048)
 /* A atual implementação utiliza apenas um bloco para todos os inodes
    de todos os arquivos do sistema. Ou seja, cria um limite rígido no
    número de arquivos e tamanho do dispositivo. */
@@ -340,7 +341,7 @@ static struct fuse_operations fuse_brisafs = {
 int main(int argc, char *argv[]) {
 
     printf("Iniciando o BrisaFS...\n");
-    printf("\t Tamanho máximo de arquivo = 1 bloco = %d bytes\n", TAM_BLOCO);
+    printf("\t Tamanho máximo de arquivo = 1 bloco = %lu bytes\n", TAM_BLOCO);
     printf("\t Tamanho do inode: %lu\n", sizeof(inode));
     printf("\t Número máximo de arquivos: %lu\n", MAX_FILES);
 
