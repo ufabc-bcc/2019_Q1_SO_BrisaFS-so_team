@@ -323,7 +323,7 @@ static int create_brisafs(const char *path, mode_t mode,
 
 
 /* Esta estrutura contém os ponteiros para as operações implementadas
-   no FS */
+   no sdasFS */
 static struct fuse_operations fuse_brisafs = {
                                               .create = create_brisafs,
                                               .fsync = fsync_brisafs,
