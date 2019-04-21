@@ -32,7 +32,7 @@
         Armazenamento e recuperação de datas (via ls por exemplo)
         Armazenamento e alteração direitos usando chown e chgrp
         Aumento do número máximo de arquivos para pelo menos 1024   --FEITO
-
+    teste1
     Nota 7
         Aumento do tamanho máximo do arquivo para pelo menos 64 MB
         Suporte à criação de diretórios
