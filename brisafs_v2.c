@@ -80,7 +80,10 @@ typedef struct {
     char nome[250];
     uint16_t direitos;
     uint16_t tamanho;
+    time_t data1;
+    time_t data2;
     uint16_t bloco;
+    
 } inode;
 
 /* Disco - A variável abaixo representa um disco que pode ser acessado
@@ -106,7 +109,8 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
     superbloco[isuperbloco].direitos = direitos;
     superbloco[isuperbloco].tamanho = tamanho;
     superbloco[isuperbloco].bloco = bloco;
-    if (conteudo != NULL)
+    //superbloco[isuperbloco].data1 = time(NULL);
+   if (conteudo != NULL)
         memcpy(disco + DISCO_OFFSET(bloco), conteudo, tamanho);
     else
         memset(disco + DISCO_OFFSET(bloco), 0, tamanho);
@@ -163,6 +167,13 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
             stbuf->st_mode = S_IFREG | superbloco[i].direitos;
             stbuf->st_nlink = 1;
             stbuf->st_size = superbloco[i].tamanho;
+            stbuf->st_atime = time(NULL);
+            printf("%ld\n",superbloco[i].data1);
+            printf("%ld\n",superbloco[i].data2);
+
+            stbuf->st_mtime = superbloco[i].data1;
+            stbuf->st_ctime = superbloco[i].data2;
+
             return 0; //OK, arquivo encontrado
         }
     }
@@ -323,7 +334,22 @@ static int fsync_brisafs(const char *path, int isdatasync,
 
 /* Ajusta a data de acesso e modificação do arquivo com resolução de nanosegundos */
 static int utimens_brisafs(const char *path, const struct timespec ts[2]) {
+
+        //Busca arquivo na lista de inodes
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (superbloco[i].bloco != 0 //Bloco sendo usado
+            && compara_nome(superbloco[i].nome, path)) { //Nome bate
+            //timespec.
+            superbloco[i].data1 = ts[0].tv_sec;
+            superbloco[i].data2 = ts[1].tv_sec;
+        return 0; //OK, arquivo encontrado
+        }
+    }
+
+
+   
     // Cuidado! O sistema BrisaFS não aceita horários. O seu deverá aceitar!
+    
     return 0;
 }
 
