@@ -27,7 +27,7 @@
 /*
 
     Nota 5
-        Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco".
+        Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco". --FEITO
             Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado
         Armazenamento e recuperação de datas (via ls por exemplo)   --FEITO
         Armazenamento e alteração direitos usando chown e chgrp
@@ -57,6 +57,7 @@
 #include <fuse.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #define TAM_BLOCO 4096
 /* A atual implementação utiliza apenas um bloco para todos os inodes
@@ -91,11 +92,34 @@ typedef struct {
    deve substituir por um arquivo real e assim persistir os seus
    dados! */
 byte *disco;
+FILE *Tmp_disco;
+
 //guarda os inodes dos arquivos
 inode *superbloco;
 int gravacao_bloco_conteudo;
 
 #define DISCO_OFFSET(B) (B * TAM_BLOCO)
+
+void persistecia_write(){
+    /*if(access("Persistencia", F_OK) == -1){
+        Tmp_disco = fopen("Persistencia","wb");
+    }else{
+        Tmp_disco = fopen("Persistencia","rb");
+    }*/
+    Tmp_disco = fopen("Persistencia","wb");
+    fwrite(disco,1,gravacao_bloco_conteudo*TAM_BLOCO,Tmp_disco);
+    fclose(Tmp_disco);
+}
+
+void persistecia_read(){
+    Tmp_disco = fopen("Persistencia","rb");
+    long posInicial = ftell(Tmp_disco);
+    fseek(Tmp_disco,0,SEEK_END);
+    long tamanho = ftell(Tmp_disco);
+    fseek(Tmp_disco,posInicial,SEEK_SET);
+    if(fread(disco,1,tamanho,Tmp_disco)!=0)
+    fclose(Tmp_disco);
+}
 
 /* Preenche os campos do superbloco de índice isuperbloco */
 void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
@@ -111,7 +135,6 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
         return;
     }
     
-
     //Joga fora a(s) barras iniciais
     while (mnome[0] != '\0' && mnome[0] == '/')
         mnome++;
@@ -124,10 +147,13 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
     //conforme usa a funcao utimens_brisafs cuidas das datas, esta funcao já foi implementada pelo grupo
     superbloco[isuperbloco].data1 = time(NULL);
     superbloco[isuperbloco].data2 = time(NULL);
-   if (conteudo != NULL)
+    if (conteudo != NULL){
         memcpy(disco + DISCO_OFFSET(bloco), conteudo, tamanho);
-    else
+    }
+    else{
         memset(disco + DISCO_OFFSET(bloco), 0, tamanho);
+    }
+    persistecia_write();
 }
 
 
@@ -136,14 +162,15 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
    inicializando todas as posições (ou apenas o(s) superbloco(s))
    com os valores apropriados */
 void init_brisafs() {
+    gravacao_bloco_conteudo = quant_blocos_superinode;
     disco = calloc (MAX_BLOCOS, TAM_BLOCO);
+    persistecia_read();
     superbloco = (inode*) disco; //posição 0
     //Cria um arquivo na mão de boas vindas
     char *nome = "UFABC SO 2019.txt";
     //Cuidado! pois se tiver acentos em UTF8 uma letra pode ser mais que um byte
     char *conteudo = "Adoro as aulas de SO da UFABC!\n";
     //O quant_blocos_superinode está sendo usado pelo superbloco. O primeiro livre é o +1
-    gravacao_bloco_conteudo = quant_blocos_superinode;
     preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), gravacao_bloco_conteudo + 1, (byte*)conteudo);
 }
 
