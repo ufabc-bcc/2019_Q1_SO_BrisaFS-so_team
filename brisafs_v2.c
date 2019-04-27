@@ -29,12 +29,12 @@
     Nota 5
         Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco".
             Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado
-        Armazenamento e recuperação de datas (via ls por exemplo)
+        Armazenamento e recuperação de datas (via ls por exemplo)   --FEITO
         Armazenamento e alteração direitos usando chown e chgrp
         Aumento do número máximo de arquivos para pelo menos 1024   --FEITO
-    teste1
+
     Nota 7
-        Aumento do tamanho máximo do arquivo para pelo menos 64 MB
+        Aumento do tamanho máximo do arquivo para pelo menos 64 MB --Iniciado
         Suporte à criação de diretórios
         Exclusão de arquivos
 
@@ -61,17 +61,17 @@
 #define TAM_BLOCO 4096
 /* A atual implementação utiliza apenas um bloco para todos os inodes
    de todos os arquivos do sistema. Ou seja, cria um limite rígido no
-   número de arquivos e tamanho do dispositivo. */
-   /* o tamanho do 134217728 que é 2^27, foi escolhido com a ideia de completar os requisitos tanto de aumentar a quantidade de arquivos da nota 5
-   quanto em utlilizar os plocos criados para aumentar o tamanho maximo dos arquivos da nota 7 e 10, o tamanho maximo aumentado é quase de 2G.*/
-#define MAX_FILES ((TAM_BLOCO + 134217728) / sizeof(inode))
-/* 1 para o superbloco e o resto para os arquivos. Os arquivos nesta
-   implementação também tem apenas 1 bloco no máximo de tamanho. */
-#define MAX_BLOCOS (1 + MAX_FILES)
+   número de arquivos e tamanho do dispositivo. - Esta parte foi desmontada */
+#define MAX_FILES 2048
+/* Para o superbloco e o resto para os arquivos. Os arquivos nesta
+   implementação também tem uma quantidade de bloco, para conseguir guardar aquivos maiores que 1 G
+   Se cada arquivo puder usar mais de 1 bloco. */
+#define MAX_BLOCOS (500000 + quant_blocos_superinode)
 /* Parte da sua tarefa será armazenar e recuperar corretamente os
    direitos dos arquivos criados */
 #define DIREITOS_PADRAO 0644
-
+/*guarda a quantia de blocos que o superbloco precisa para o requsito de 2048 arquivos*/
+#define quant_blocos_superinode ((MAX_FILES/(TAM_BLOCO/sizeof(inode)))+1)
 typedef char byte;
 
 /* Um inode guarda todas as informações relativas a um arquivo como
@@ -91,12 +91,9 @@ typedef struct {
    deve substituir por um arquivo real e assim persistir os seus
    dados! */
 byte *disco;
-
-/*guarda a quantia de blocos que o superbloco precisa para o requsito de 2048 arquivos*/
-int quant_blocos_superinode;
-int quant_blocos_usada;
 //guarda os inodes dos arquivos
 inode *superbloco;
+int gravacao_bloco_conteudo;
 
 #define DISCO_OFFSET(B) (B * TAM_BLOCO)
 
@@ -105,6 +102,16 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
                      uint16_t tamanho, uint16_t bloco, const byte *conteudo) {
                          
     char *mnome = (char*)nome;
+    //aumetar marcacao de espaco de gravacao do arquivo
+    if(gravacao_bloco_conteudo < 500000){
+        gravacao_bloco_conteudo++;
+    }else{
+        //significa que todos os blocos estao ocupados e nao tem espaço para escrever mais
+        printf("Todos os blocos de conteudo foram usados, tamnho maximo atingido");
+        return;
+    }
+    
+
     //Joga fora a(s) barras iniciais
     while (mnome[0] != '\0' && mnome[0] == '/')
         mnome++;
@@ -113,7 +120,10 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
     superbloco[isuperbloco].direitos = direitos;
     superbloco[isuperbloco].tamanho = tamanho;
     superbloco[isuperbloco].bloco = bloco;
-    //superbloco[isuperbloco].data1 = time(NULL);
+    //Iniciar com as datas preenchidas
+    //conforme usa a funcao utimens_brisafs cuidas das datas, esta funcao já foi implementada pelo grupo
+    superbloco[isuperbloco].data1 = time(NULL);
+    superbloco[isuperbloco].data2 = time(NULL);
    if (conteudo != NULL)
         memcpy(disco + DISCO_OFFSET(bloco), conteudo, tamanho);
     else
@@ -128,15 +138,13 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
 void init_brisafs() {
     disco = calloc (MAX_BLOCOS, TAM_BLOCO);
     superbloco = (inode*) disco; //posição 0
-
-    quant_blocos_superinode = ((2048/(TAM_BLOCO/sizeof(inode)))+1);
-    quant_blocos_usada = quant_blocos_superinode +1;
     //Cria um arquivo na mão de boas vindas
     char *nome = "UFABC SO 2019.txt";
     //Cuidado! pois se tiver acentos em UTF8 uma letra pode ser mais que um byte
     char *conteudo = "Adoro as aulas de SO da UFABC!\n";
     //O quant_blocos_superinode está sendo usado pelo superbloco. O primeiro livre é o +1
-    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), quant_blocos_usada, (byte*)conteudo);
+    gravacao_bloco_conteudo = quant_blocos_superinode;
+    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), gravacao_bloco_conteudo + 1, (byte*)conteudo);
 }
 
 /* Devolve 1 caso representem o mesmo nome e 0 cc */
@@ -167,7 +175,7 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
     }
 
     //Busca arquivo na lista de inodes
-    for (int i = 0; i < quant_blocos_usada; i++) {
+    for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
 
@@ -201,7 +209,7 @@ static int readdir_brisafs(const char *path, void *buf, fuse_fill_dir_t filler,
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
 
-    for (int i = 0; i < quant_blocos_usada; i++) {
+    for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0) { //Bloco ocupado!
             filler(buf, superbloco[i].nome, NULL, 0);
         }
@@ -224,7 +232,7 @@ static int read_brisafs(const char *path, char *buf, size_t size,
                         off_t offset, struct fuse_file_info *fi) {
 
     //Procura o arquivo
-    for (int i = 0; i < quant_blocos_usada; i++) {
+    for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) //bloco vazio
             continue;
         if (compara_nome(path, superbloco[i].nome)) {//achou!
@@ -255,7 +263,7 @@ static int read_brisafs(const char *path, char *buf, size_t size,
 static int write_brisafs(const char *path, const char *buf, size_t size,
                          off_t offset, struct fuse_file_info *fi) {
 
-    for (int i = 0; i < quant_blocos_usada; i++) {
+    for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) { //bloco vazio
             continue;
         }
@@ -269,10 +277,9 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
     //Se chegou aqui não achou. Entao cria
     //Acha o primeiro bloco vazio
     //mudando a inicial do i, para evitar escrever nos blocos reservados
-    for (int i = 0; i < quant_blocos_usada; i++) {
+    for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) {//ninguem usando
-            quant_blocos_usada = quant_blocos_usada + 1;
-            preenche_bloco (i, path, DIREITOS_PADRAO, size, quant_blocos_usada, buf);
+            preenche_bloco (i, path, DIREITOS_PADRAO, size, gravacao_bloco_conteudo + 1, buf);
             return size;
         }
     }
@@ -289,7 +296,7 @@ static int truncate_brisafs(const char *path, off_t size) {
 
     //procura o arquivo
     int findex = -1;
-    for(int i = 0; i < quant_blocos_usada; i++) {
+    for(int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0
             && compara_nome(path, superbloco[i].nome)) {
             findex = i;
@@ -301,10 +308,9 @@ static int truncate_brisafs(const char *path, off_t size) {
         return 0;
     } else {// Arquivo novo
         //Acha o primeiro bloco vazio
-        for (int i = 0 + 1; i < quant_blocos_usada; i++) {
+        for (int i = 0 + 1; i < MAX_FILES; i++) {
             if (superbloco[i].bloco == 0) {//ninguem usando
-                quant_blocos_usada = quant_blocos_usada + 1;
-                preenche_bloco (i, path, DIREITOS_PADRAO, size, quant_blocos_usada, NULL);
+                preenche_bloco (i, path, DIREITOS_PADRAO, size, gravacao_bloco_conteudo + 1, NULL);
                 break;
             }
         }
@@ -320,10 +326,9 @@ static int mknod_brisafs(const char *path, mode_t mode, dev_t rdev) {
         //mknod" para instruções de como pegar os direitos e demais
         //informações sobre os arquivos
         //Acha o primeiro bloco vazio
-        for (int i = 0; i < quant_blocos_usada; i++) {
+        for (int i = 0; i < MAX_FILES; i++) {
             if (superbloco[i].bloco == 0) {//ninguem usando
-                quant_blocos_usada = quant_blocos_usada + 1;
-                preenche_bloco (i, path, DIREITOS_PADRAO, 0, quant_blocos_usada, NULL);
+                preenche_bloco (i, path, DIREITOS_PADRAO, 0, gravacao_bloco_conteudo + 1, NULL);
                 return 0;
             }
         }
@@ -347,7 +352,7 @@ static int fsync_brisafs(const char *path, int isdatasync,
 static int utimens_brisafs(const char *path, const struct timespec ts[2]) {
 
         //Busca arquivo na lista de inodes
-    for (int i = 0; i < quant_blocos_usada; i++) {
+    for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
             //timespec.
@@ -373,10 +378,9 @@ static int create_brisafs(const char *path, mode_t mode,
     //cuidar disso Veja "man 2 mknod" para instruções de como pegar os
     //direitos e demais informações sobre os arquivos Acha o primeiro
     //bloco vazio
-    for (int i = 0; i < quant_blocos_usada; i++) {
+    for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) {//ninguem usando
-            quant_blocos_usada = quant_blocos_usada +1;
-            preenche_bloco (i, path, DIREITOS_PADRAO, 0, quant_blocos_usada, NULL);
+            preenche_bloco (i, path, DIREITOS_PADRAO, 0, gravacao_bloco_conteudo + 1, NULL);
             return 0;
         }
     }
@@ -402,11 +406,13 @@ static struct fuse_operations fuse_brisafs = {
 int main(int argc, char *argv[]) {
 
     printf("Iniciando o BrisaFS...\n");
-    printf("\t Tamanho máximo de arquivo = n bloco = %lu bytes\n", TAM_BLOCO * (MAX_FILES-1));
+    printf("\t Tamanho máximo de arquivo = n bloco = %lu bytes\n", TAM_BLOCO * (MAX_BLOCOS - quant_blocos_superinode));
     printf("\t Tamanho do bloco: %u\n", TAM_BLOCO);
     printf("\t Tamanho do inode: %lu\n", sizeof(inode));
-    printf("\t Número máximo de arquivos: %lu\n", MAX_FILES);
-    printf("\t Quantidade de blocos para conter o superbloco de 2048 arquivos: %lu\n", (2048/(TAM_BLOCO/sizeof(inode)))+1);
+    printf("\t Número máximo de arquivos: %u\n", MAX_FILES);
+    printf("\t Quantidade de blocos para conter o superbloco de 2048 arquivos: %lu\n", quant_blocos_superinode);
+    printf("\t Número máximo de blocos: %lu\n", MAX_BLOCOS);
+
     
     init_brisafs();
 
