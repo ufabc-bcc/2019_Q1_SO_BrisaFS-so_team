@@ -58,13 +58,13 @@
 #include <string.h>
 #include <errno.h>
 
-/* Tamnanho do bloco do dispositivo, ajustando para o Melestones 1, pede para aumentar
-para pelo menos 1024, estou aumentando para 2048*/
-#define TAM_BLOCO (sizeof(inode) * 2048)
+#define TAM_BLOCO 4096
 /* A atual implementação utiliza apenas um bloco para todos os inodes
    de todos os arquivos do sistema. Ou seja, cria um limite rígido no
    número de arquivos e tamanho do dispositivo. */
-#define MAX_FILES (TAM_BLOCO / sizeof(inode))
+   /* o tamanho do 134217728 que é 2^27, foi escolhido com a ideia de completar os requisitos tanto de aumentar a quantidade de arquivos da nota 5
+   quanto em utlilizar os plocos criados para aumentar o tamanho maximo dos arquivos da nota 7 e 10, o tamanho maximo aumentado é quase de 2G.*/
+#define MAX_FILES ((TAM_BLOCO + 134217728) / sizeof(inode))
 /* 1 para o superbloco e o resto para os arquivos. Os arquivos nesta
    implementação também tem apenas 1 bloco no máximo de tamanho. */
 #define MAX_BLOCOS (1 + MAX_FILES)
@@ -92,6 +92,8 @@ typedef struct {
    dados! */
 byte *disco;
 
+/*guarda a quantia de blocos que o superbloco precisa para o requsito de 2048 arquivos*/
+int quant_blocos_superinode;
 //guarda os inodes dos arquivos
 inode *superbloco;
 
@@ -124,12 +126,14 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
 void init_brisafs() {
     disco = calloc (MAX_BLOCOS, TAM_BLOCO);
     superbloco = (inode*) disco; //posição 0
+
+    quant_blocos_superinode = ((2048/(TAM_BLOCO/sizeof(inode)))+1);
     //Cria um arquivo na mão de boas vindas
     char *nome = "UFABC SO 2019.txt";
     //Cuidado! pois se tiver acentos em UTF8 uma letra pode ser mais que um byte
     char *conteudo = "Adoro as aulas de SO da UFABC!\n";
-    //0 está sendo usado pelo superbloco. O primeiro livre é o 1
-    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), 1, (byte*)conteudo);
+    //O quant_blocos_superinode está sendo usado pelo superbloco. O primeiro livre é o +1
+    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), quant_blocos_superinode+1, (byte*)conteudo);
 }
 
 /* Devolve 1 caso representem o mesmo nome e 0 cc */
@@ -261,7 +265,8 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
     }
     //Se chegou aqui não achou. Entao cria
     //Acha o primeiro bloco vazio
-    for (int i = 0; i < MAX_FILES; i++) {
+    //mudando a inicial do i, para evitar escrever nos blocos reservados
+    for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) {//ninguem usando
             preenche_bloco (i, path, DIREITOS_PADRAO, size, i + 1, buf);
             return size;
@@ -292,7 +297,7 @@ static int truncate_brisafs(const char *path, off_t size) {
         return 0;
     } else {// Arquivo novo
         //Acha o primeiro bloco vazio
-        for (int i = 0; i < MAX_FILES; i++) {
+        for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
             if (superbloco[i].bloco == 0) {//ninguem usando
                 preenche_bloco (i, path, DIREITOS_PADRAO, size, i + 1, NULL);
                 break;
@@ -310,7 +315,7 @@ static int mknod_brisafs(const char *path, mode_t mode, dev_t rdev) {
         //mknod" para instruções de como pegar os direitos e demais
         //informações sobre os arquivos
         //Acha o primeiro bloco vazio
-        for (int i = 0; i < MAX_FILES; i++) {
+        for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
             if (superbloco[i].bloco == 0) {//ninguem usando
                 preenche_bloco (i, path, DIREITOS_PADRAO, 0, i + 1, NULL);
                 return 0;
@@ -362,7 +367,7 @@ static int create_brisafs(const char *path, mode_t mode,
     //cuidar disso Veja "man 2 mknod" para instruções de como pegar os
     //direitos e demais informações sobre os arquivos Acha o primeiro
     //bloco vazio
-    for (int i = 0; i < MAX_FILES; i++) {
+    for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) {//ninguem usando
             preenche_bloco (i, path, DIREITOS_PADRAO, 0, i + 1, NULL);
             return 0;
@@ -390,10 +395,12 @@ static struct fuse_operations fuse_brisafs = {
 int main(int argc, char *argv[]) {
 
     printf("Iniciando o BrisaFS...\n");
-    printf("\t Tamanho máximo de arquivo = 1 bloco = %lu bytes\n", TAM_BLOCO);
+    printf("\t Tamanho máximo de arquivo = n bloco = %lu bytes\n", TAM_BLOCO * (MAX_FILES-1));
+    printf("\t Tamanho do bloco: %u\n", TAM_BLOCO);
     printf("\t Tamanho do inode: %lu\n", sizeof(inode));
     printf("\t Número máximo de arquivos: %lu\n", MAX_FILES);
-
+    printf("\t Quantidade de blocos para conter o superbloco de 2048 arquivos: %lu\n", (2048/(TAM_BLOCO/sizeof(inode)))+1);
+    
     init_brisafs();
 
     return fuse_main(argc, argv, &fuse_brisafs, NULL);
