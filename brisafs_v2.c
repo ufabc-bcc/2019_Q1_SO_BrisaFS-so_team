@@ -135,6 +135,7 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
         return;
     }
     
+
     //Joga fora a(s) barras iniciais
     while (mnome[0] != '\0' && mnome[0] == '/')
         mnome++;
@@ -147,10 +148,9 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
     //conforme usa a funcao utimens_brisafs cuidas das datas, esta funcao já foi implementada pelo grupo
     superbloco[isuperbloco].data1 = time(NULL);
     superbloco[isuperbloco].data2 = time(NULL);
-    if (conteudo != NULL){
+   if (conteudo != NULL)
         memcpy(disco + DISCO_OFFSET(bloco), conteudo, tamanho);
-    }
-    else{
+    else
         memset(disco + DISCO_OFFSET(bloco), 0, tamanho);
     }
     persistecia_write();
