@@ -164,7 +164,7 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
     }
 
     //Busca arquivo na lista de inodes
-    for (int i = 0; i < MAX_FILES; i++) {
+    for (int i = 0; i < quant_blocos_superinode; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
 
@@ -198,7 +198,7 @@ static int readdir_brisafs(const char *path, void *buf, fuse_fill_dir_t filler,
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
 
-    for (int i = 0; i < MAX_FILES; i++) {
+    for (int i = 0; i < quant_blocos_superinode; i++) {
         if (superbloco[i].bloco != 0) { //Bloco ocupado!
             filler(buf, superbloco[i].nome, NULL, 0);
         }
@@ -221,7 +221,7 @@ static int read_brisafs(const char *path, char *buf, size_t size,
                         off_t offset, struct fuse_file_info *fi) {
 
     //Procura o arquivo
-    for (int i = 0; i < MAX_FILES; i++) {
+    for (int i = 0; i < quant_blocos_superinode; i++) {
         if (superbloco[i].bloco == 0) //bloco vazio
             continue;
         if (compara_nome(path, superbloco[i].nome)) {//achou!
@@ -252,7 +252,7 @@ static int read_brisafs(const char *path, char *buf, size_t size,
 static int write_brisafs(const char *path, const char *buf, size_t size,
                          off_t offset, struct fuse_file_info *fi) {
 
-    for (int i = 0; i < MAX_FILES; i++) {
+    for (int i = 0; i < quant_blocos_superinode; i++) {
         if (superbloco[i].bloco == 0) { //bloco vazio
             continue;
         }
@@ -285,7 +285,7 @@ static int truncate_brisafs(const char *path, off_t size) {
 
     //procura o arquivo
     int findex = -1;
-    for(int i = 0; i < MAX_FILES; i++) {
+    for(int i = 0; i < quant_blocos_superinode; i++) {
         if (superbloco[i].bloco != 0
             && compara_nome(path, superbloco[i].nome)) {
             findex = i;
@@ -341,7 +341,7 @@ static int fsync_brisafs(const char *path, int isdatasync,
 static int utimens_brisafs(const char *path, const struct timespec ts[2]) {
 
         //Busca arquivo na lista de inodes
-    for (int i = 0; i < MAX_FILES; i++) {
+    for (int i = 0; i < quant_blocos_superinode; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
             //timespec.
