@@ -7,7 +7,7 @@
  * Federal do ABC. Você pode reutilizar este código livremente
  * (inclusive para fins comerciais) desde que sejam mantidos, além
  * deste aviso, os créditos aos autores e instituições.
- *
+
  * Licença: CC-BY-SA 4.0
  *
  * O código abaixo implementa (parcialmente) as bases sobre as quais
@@ -94,6 +94,7 @@ byte *disco;
 
 /*guarda a quantia de blocos que o superbloco precisa para o requsito de 2048 arquivos*/
 int quant_blocos_superinode;
+int quant_blocos_usada;
 //guarda os inodes dos arquivos
 inode *superbloco;
 
@@ -102,6 +103,7 @@ inode *superbloco;
 /* Preenche os campos do superbloco de índice isuperbloco */
 void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
                      uint16_t tamanho, uint16_t bloco, const byte *conteudo) {
+                         
     char *mnome = (char*)nome;
     //Joga fora a(s) barras iniciais
     while (mnome[0] != '\0' && mnome[0] == '/')
@@ -128,12 +130,13 @@ void init_brisafs() {
     superbloco = (inode*) disco; //posição 0
 
     quant_blocos_superinode = ((2048/(TAM_BLOCO/sizeof(inode)))+1);
+    quant_blocos_usada = quant_blocos_superinode +1;
     //Cria um arquivo na mão de boas vindas
     char *nome = "UFABC SO 2019.txt";
     //Cuidado! pois se tiver acentos em UTF8 uma letra pode ser mais que um byte
     char *conteudo = "Adoro as aulas de SO da UFABC!\n";
     //O quant_blocos_superinode está sendo usado pelo superbloco. O primeiro livre é o +1
-    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), quant_blocos_superinode+1, (byte*)conteudo);
+    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), quant_blocos_usada, (byte*)conteudo);
 }
 
 /* Devolve 1 caso representem o mesmo nome e 0 cc */
@@ -164,7 +167,7 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
     }
 
     //Busca arquivo na lista de inodes
-    for (int i = 0; i < quant_blocos_superinode; i++) {
+    for (int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
 
@@ -198,7 +201,7 @@ static int readdir_brisafs(const char *path, void *buf, fuse_fill_dir_t filler,
     filler(buf, ".", NULL, 0);
     filler(buf, "..", NULL, 0);
 
-    for (int i = 0; i < quant_blocos_superinode; i++) {
+    for (int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco != 0) { //Bloco ocupado!
             filler(buf, superbloco[i].nome, NULL, 0);
         }
@@ -221,7 +224,7 @@ static int read_brisafs(const char *path, char *buf, size_t size,
                         off_t offset, struct fuse_file_info *fi) {
 
     //Procura o arquivo
-    for (int i = 0; i < quant_blocos_superinode; i++) {
+    for (int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco == 0) //bloco vazio
             continue;
         if (compara_nome(path, superbloco[i].nome)) {//achou!
@@ -252,7 +255,7 @@ static int read_brisafs(const char *path, char *buf, size_t size,
 static int write_brisafs(const char *path, const char *buf, size_t size,
                          off_t offset, struct fuse_file_info *fi) {
 
-    for (int i = 0; i < quant_blocos_superinode; i++) {
+    for (int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco == 0) { //bloco vazio
             continue;
         }
@@ -266,9 +269,10 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
     //Se chegou aqui não achou. Entao cria
     //Acha o primeiro bloco vazio
     //mudando a inicial do i, para evitar escrever nos blocos reservados
-    for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
+    for (int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco == 0) {//ninguem usando
-            preenche_bloco (i, path, DIREITOS_PADRAO, size, i + 1, buf);
+            quant_blocos_usada = quant_blocos_usada + 1;
+            preenche_bloco (i, path, DIREITOS_PADRAO, size, quant_blocos_usada, buf);
             return size;
         }
     }
@@ -285,7 +289,7 @@ static int truncate_brisafs(const char *path, off_t size) {
 
     //procura o arquivo
     int findex = -1;
-    for(int i = 0; i < quant_blocos_superinode; i++) {
+    for(int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco != 0
             && compara_nome(path, superbloco[i].nome)) {
             findex = i;
@@ -297,9 +301,10 @@ static int truncate_brisafs(const char *path, off_t size) {
         return 0;
     } else {// Arquivo novo
         //Acha o primeiro bloco vazio
-        for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
+        for (int i = 0 + 1; i < quant_blocos_usada; i++) {
             if (superbloco[i].bloco == 0) {//ninguem usando
-                preenche_bloco (i, path, DIREITOS_PADRAO, size, i + 1, NULL);
+                quant_blocos_usada = quant_blocos_usada + 1;
+                preenche_bloco (i, path, DIREITOS_PADRAO, size, quant_blocos_usada, NULL);
                 break;
             }
         }
@@ -315,9 +320,10 @@ static int mknod_brisafs(const char *path, mode_t mode, dev_t rdev) {
         //mknod" para instruções de como pegar os direitos e demais
         //informações sobre os arquivos
         //Acha o primeiro bloco vazio
-        for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
+        for (int i = 0; i < quant_blocos_usada; i++) {
             if (superbloco[i].bloco == 0) {//ninguem usando
-                preenche_bloco (i, path, DIREITOS_PADRAO, 0, i + 1, NULL);
+                quant_blocos_usada = quant_blocos_usada + 1;
+                preenche_bloco (i, path, DIREITOS_PADRAO, 0, quant_blocos_usada, NULL);
                 return 0;
             }
         }
@@ -341,7 +347,7 @@ static int fsync_brisafs(const char *path, int isdatasync,
 static int utimens_brisafs(const char *path, const struct timespec ts[2]) {
 
         //Busca arquivo na lista de inodes
-    for (int i = 0; i < quant_blocos_superinode; i++) {
+    for (int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
             //timespec.
@@ -367,9 +373,10 @@ static int create_brisafs(const char *path, mode_t mode,
     //cuidar disso Veja "man 2 mknod" para instruções de como pegar os
     //direitos e demais informações sobre os arquivos Acha o primeiro
     //bloco vazio
-    for (int i = quant_blocos_superinode + 1; i < MAX_FILES; i++) {
+    for (int i = 0; i < quant_blocos_usada; i++) {
         if (superbloco[i].bloco == 0) {//ninguem usando
-            preenche_bloco (i, path, DIREITOS_PADRAO, 0, i + 1, NULL);
+            quant_blocos_usada = quant_blocos_usada +1;
+            preenche_bloco (i, path, DIREITOS_PADRAO, 0, quant_blocos_usada, NULL);
             return 0;
         }
     }
