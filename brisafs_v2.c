@@ -25,7 +25,6 @@
  */
 
 /*
-
     Nota 5
         Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco". --FEITO
             Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado
@@ -115,9 +114,9 @@ void persistecia_read(){
         long posInicial = ftell(Tmp_disco);
         fseek(Tmp_disco,0,SEEK_END);
         long tamanho = ftell(Tmp_disco);
-        printf("Tam: %lu",tamanho);
         fseek(Tmp_disco,posInicial,SEEK_SET);
         if(fread(disco,1,tamanho,Tmp_disco)!=0);
+        fflush(stdin);
         fclose(Tmp_disco);
     }
 }
@@ -156,14 +155,18 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
 
    if (conteudo != NULL){
        for (int i = 0; i < superbloco[isuperbloco].quant_blocos; i++) {
-            if(i-1 == superbloco[isuperbloco].quant_blocos)
-                memcpy(disco + DISCO_OFFSET(bloco + i), conteudo, TAM_BLOCO);
-            else
-                memcpy(disco + DISCO_OFFSET(bloco + i), conteudo, tamanho%TAM_BLOCO);
+            if(i != superbloco[isuperbloco].quant_blocos-1){
+                printf("Passei por aqui 1");
+                memcpy(disco + DISCO_OFFSET(bloco) + (i*TAM_BLOCO), conteudo + (i*TAM_BLOCO), TAM_BLOCO);
+            }
+            else{
+                printf("Passei por aqui 2");            
+                memcpy(disco + DISCO_OFFSET(bloco) + (i*TAM_BLOCO), conteudo + (i*TAM_BLOCO), tamanho - floor(tamanho/TAM_BLOCO) * TAM_BLOCO);
+            }
         }
    }else
         memset(disco + DISCO_OFFSET(bloco), 0, tamanho);
-    
+
     persistecia_write();
 }
 
@@ -179,6 +182,7 @@ void init_brisafs() {
     //Garante que não ocorre sobreescrita de dados antigos da persistencia.
     gravacao_bloco_conteudo = quant_blocos_superinode;
     for (int i = 0; i < MAX_FILES; i++) {
+        gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[i].quant_blocos;
         if (superbloco[i].bloco == 0) { //Livre!
             if(i > 0)
                 gravacao_bloco_conteudo = quant_blocos_superinode + i -1;
@@ -285,18 +289,14 @@ static int read_brisafs(const char *path, char *buf, size_t size,
             continue;
         if (compara_nome(path, superbloco[i].nome)) {//achou!
             size_t len = superbloco[i].tamanho;
-            if (offset >= len) {//tentou ler além do fim do arquivo
+            /*if (offset >= len) {//tentou ler além do fim do arquivo
                 return 0;
-            }
+            }*/
             if (offset + size > len) {
-                memcpy(buf,
-                       disco + DISCO_OFFSET(superbloco[i].bloco),
-                       len - offset);
+                memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco),len - offset);
                 return len - offset;
             }
-
-            memcpy(buf,
-                   disco + DISCO_OFFSET(superbloco[i].bloco), size);
+            memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco), size);
             return size;
         }
     }
@@ -311,6 +311,9 @@ static int read_brisafs(const char *path, char *buf, size_t size,
 static int write_brisafs(const char *path, const char *buf, size_t size,
                          off_t offset, struct fuse_file_info *fi) {
 
+    /*
+    Tem que incrementar uma parte que move os inode e os conteudos
+    conforme o espaco necessario para o armazenamento muda*/
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) { //bloco vazio
             continue;
@@ -391,6 +394,10 @@ static int mknod_brisafs(const char *path, mode_t mode, dev_t rdev) {
    persistidas */
 static int fsync_brisafs(const char *path, int isdatasync,
                          struct fuse_file_info *fi) {
+    //foram montados dois metodos iniciais, sendo este metodo não necessario, porem para garantir
+    //estou limpando o fflush neles tbm.
+    fflush(stdin);
+    fflush(stdout);
     //Como tudo é em memória, não é preciso fazer nada.
     // Cuidado! Você vai precisar jogar tudo que está só em memóri no disco
     return 0;
@@ -408,18 +415,13 @@ static int utimens_brisafs(const char *path, const struct timespec ts[2]) {
             superbloco[i].data2 = ts[1].tv_sec;
         return 0; //OK, arquivo encontrado
         }
-    }
-
-
-   
+    } 
     // Cuidado! O sistema BrisaFS não aceita horários. O seu deverá aceitar!
-    
     return 0;
-}
-
 
 /* Cria e abre o arquivo apontado por path. Se o arquivo não existir
    cria e depois abre*/
+}
 static int create_brisafs(const char *path, mode_t mode,
                           struct fuse_file_info *fi) {
     //Cuidado! Está ignorando todos os parâmetros. O seu deverá
@@ -460,8 +462,7 @@ int main(int argc, char *argv[]) {
     printf("\t Número máximo de arquivos: %u\n", MAX_FILES);
     printf("\t Quantidade de blocos para conter o superbloco de 2048 arquivos: %lu\n", quant_blocos_superinode);
     printf("\t Número máximo de blocos: %lu\n", MAX_BLOCOS);
-    persistecia_read();
-    
+    //printf("\t Comparando tamanhos %ld\n",strlen("Adoro as aulas de SO da UFABC!\n"));
     init_brisafs();
 
     return fuse_main(argc, argv, &fuse_brisafs, NULL);
