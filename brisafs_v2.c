@@ -156,12 +156,11 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
    if (conteudo != NULL){
        for (int i = 0; i < superbloco[isuperbloco].quant_blocos; i++) {
             if(i != superbloco[isuperbloco].quant_blocos-1){
-                printf("Passei por aqui 1");
-                memcpy(disco + DISCO_OFFSET(bloco) + (i*TAM_BLOCO), conteudo + (i*TAM_BLOCO), TAM_BLOCO);
+                memcpy(disco + DISCO_OFFSET(bloco) + DISCO_OFFSET(i), conteudo + (i*TAM_BLOCO) , TAM_BLOCO);
             }
             else{
                 printf("Passei por aqui 2");            
-                memcpy(disco + DISCO_OFFSET(bloco) + (i*TAM_BLOCO), conteudo + (i*TAM_BLOCO), tamanho - floor(tamanho/TAM_BLOCO) * TAM_BLOCO);
+                memcpy(disco + DISCO_OFFSET(bloco) + DISCO_OFFSET(i), conteudo + (i*TAM_BLOCO) ,tamanho - floor(tamanho/TAM_BLOCO) * TAM_BLOCO);
             }
         }
    }else
@@ -248,8 +247,6 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
     return -ENOENT;
 }
 
-
-
 /* Devolve ao FUSE a estrutura completa do diretório indicado pelo
    parâmetro path. Devolve 0 em caso de sucesso ou um código de
    erro. Atenção ao uso abaixo dos demais parâmetros. */
@@ -311,18 +308,45 @@ static int read_brisafs(const char *path, char *buf, size_t size,
 static int write_brisafs(const char *path, const char *buf, size_t size,
                          off_t offset, struct fuse_file_info *fi) {
 
-    /*
-    Tem que incrementar uma parte que move os inode e os conteudos
+    /*Tem que incrementar uma parte que move os inode e os conteudos
     conforme o espaco necessario para o armazenamento muda*/
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) { //bloco vazio
             continue;
         }
         if (compara_nome(path, superbloco[i].nome)) {//achou!
-            // Cuidado! Não checa se a quantidade de bytes cabe no arquivo!
-            memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, buf, size);
+        
             superbloco[i].tamanho = offset + size;
-            return size;
+            superbloco[i].bloco = gravacao_bloco_conteudo + 1;
+            if (ceil(superbloco[i].tamanho/TAM_BLOCO) == 0)
+                superbloco[i].quant_blocos = 1;
+            else
+                superbloco[i].quant_blocos = ceil(superbloco[i].tamanho/TAM_BLOCO);
+
+            if((gravacao_bloco_conteudo + superbloco[i].quant_blocos) < 500000){
+                gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[i].quant_blocos;
+            }else{
+                //significa que todos os blocos estao ocupados e nao tem espaço para escrever mais
+                printf("Todos os blocos de conteudo foram usados, tamnho maximo atingido, conteudo do arquivo nao foi gravado");
+                return -EIO;
+            }
+
+            if (buf != NULL){
+                for (int i = 0; i < superbloco[i].quant_blocos; i++) {
+                    if(i != superbloco[i].quant_blocos-1){
+                        printf("Passei por aqui 1");
+                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(i) + offset, buf + (i*TAM_BLOCO), TAM_BLOCO);
+                    }
+                    else{
+                        printf("Passei por aqui 2");            
+                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(i) + offset, buf + (i*TAM_BLOCO), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
+                    }
+                }
+            }else
+                memset(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, 0, size);
+
+        persistecia_write();
+        return size;
         }
     }
     //Se chegou aqui não achou. Entao cria
@@ -337,7 +361,6 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
 
     return -EIO;
 }
-
 
 /* Altera o tamanho do arquivo apontado por path para tamanho size
    bytes */
@@ -387,7 +410,6 @@ static int mknod_brisafs(const char *path, mode_t mode, dev_t rdev) {
     }
     return EINVAL;
 }
-
 
 /* Sincroniza escritas pendentes (ainda em um buffer) em disco. Só
    retorna quando todas as escritas pendentes tiverem sido
