@@ -103,6 +103,7 @@ int gravacao_bloco_conteudo;
 void persistecia_write(){
     Tmp_disco = fopen("Persistencia","wb");
     fwrite(disco,1,(gravacao_bloco_conteudo+1)*TAM_BLOCO,Tmp_disco);
+    fflush(stdout);
     fclose(Tmp_disco);    
 }
 
@@ -113,6 +114,7 @@ void persistecia_read(){
         long posInicial = ftell(Tmp_disco);
         fseek(Tmp_disco,0,SEEK_END);
         long tamanho = ftell(Tmp_disco);
+        printf("Tam: %lu",tamanho);
         fseek(Tmp_disco,posInicial,SEEK_SET);
         if(fread(disco,1,tamanho,Tmp_disco)!=0);
         fclose(Tmp_disco);
@@ -444,7 +446,7 @@ int main(int argc, char *argv[]) {
     printf("\t Número máximo de arquivos: %u\n", MAX_FILES);
     printf("\t Quantidade de blocos para conter o superbloco de 2048 arquivos: %lu\n", quant_blocos_superinode);
     printf("\t Número máximo de blocos: %lu\n", MAX_BLOCOS);
-
+    persistecia_read();
     
     init_brisafs();
 
