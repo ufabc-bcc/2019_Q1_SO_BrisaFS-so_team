@@ -101,24 +101,22 @@ int gravacao_bloco_conteudo;
 #define DISCO_OFFSET(B) (B * TAM_BLOCO)
 
 void persistecia_write(){
-    /*if(access("Persistencia", F_OK) == -1){
-        Tmp_disco = fopen("Persistencia","wb");
-    }else{
-        Tmp_disco = fopen("Persistencia","rb");
-    }*/
     Tmp_disco = fopen("Persistencia","wb");
-    fwrite(disco,1,gravacao_bloco_conteudo*TAM_BLOCO,Tmp_disco);
-    fclose(Tmp_disco);
+    fwrite(disco,1,(gravacao_bloco_conteudo+1)*TAM_BLOCO,Tmp_disco);
+    fclose(Tmp_disco);    
 }
 
 void persistecia_read(){
+    disco = calloc (MAX_BLOCOS, TAM_BLOCO);
     Tmp_disco = fopen("Persistencia","rb");
-    long posInicial = ftell(Tmp_disco);
-    fseek(Tmp_disco,0,SEEK_END);
-    long tamanho = ftell(Tmp_disco);
-    fseek(Tmp_disco,posInicial,SEEK_SET);
-    if(fread(disco,1,tamanho,Tmp_disco)!=0)
-    fclose(Tmp_disco);
+    if(Tmp_disco != NULL){
+        long posInicial = ftell(Tmp_disco);
+        fseek(Tmp_disco,0,SEEK_END);
+        long tamanho = ftell(Tmp_disco);
+        fseek(Tmp_disco,posInicial,SEEK_SET);
+        if(fread(disco,1,tamanho,Tmp_disco)!=0);
+        fclose(Tmp_disco);
+    }
 }
 
 /* Preenche os campos do superbloco de índice isuperbloco */
@@ -134,8 +132,6 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
         printf("Todos os blocos de conteudo foram usados, tamnho maximo atingido");
         return;
     }
-    
-
     //Joga fora a(s) barras iniciais
     while (mnome[0] != '\0' && mnome[0] == '/')
         mnome++;
@@ -162,16 +158,25 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
    inicializando todas as posições (ou apenas o(s) superbloco(s))
    com os valores apropriados */
 void init_brisafs() {
-    gravacao_bloco_conteudo = quant_blocos_superinode;
-    disco = calloc (MAX_BLOCOS, TAM_BLOCO);
     persistecia_read();
     superbloco = (inode*) disco; //posição 0
+
+    //Garante que não ocorre sobreescrita de dados antigos da persistencia.
+    gravacao_bloco_conteudo = quant_blocos_superinode;
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (superbloco[i].bloco == 0) { //Livre!
+            if(i > 0)
+                gravacao_bloco_conteudo = quant_blocos_superinode + i -1;
+            return;
+        }
+    }
+
     //Cria um arquivo na mão de boas vindas
     char *nome = "UFABC SO 2019.txt";
     //Cuidado! pois se tiver acentos em UTF8 uma letra pode ser mais que um byte
     char *conteudo = "Adoro as aulas de SO da UFABC!\n";
     //O quant_blocos_superinode está sendo usado pelo superbloco. O primeiro livre é o +1
-    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), gravacao_bloco_conteudo + 1, (byte*)conteudo);
+    preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), quant_blocos_superinode + 1, (byte*)conteudo);
 }
 
 /* Devolve 1 caso representem o mesmo nome e 0 cc */
