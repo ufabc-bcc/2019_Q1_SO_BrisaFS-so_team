@@ -58,6 +58,7 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <math.h>
 
 #define TAM_BLOCO 4096
 /* A atual implementação utiliza apenas um bloco para todos os inodes
@@ -84,7 +85,7 @@ typedef struct {
     time_t data1;
     time_t data2;
     uint16_t bloco;
-    
+    int quant_blocos;
 } inode;
 
 /* Disco - A variável abaixo representa um disco que pode ser acessado
@@ -126,14 +127,7 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
                      uint16_t tamanho, uint16_t bloco, const byte *conteudo) {
                          
     char *mnome = (char*)nome;
-    //aumetar marcacao de espaco de gravacao do arquivo
-    if(gravacao_bloco_conteudo < 500000){
-        gravacao_bloco_conteudo++;
-    }else{
-        //significa que todos os blocos estao ocupados e nao tem espaço para escrever mais
-        printf("Todos os blocos de conteudo foram usados, tamnho maximo atingido");
-        return;
-    }
+
     //Joga fora a(s) barras iniciais
     while (mnome[0] != '\0' && mnome[0] == '/')
         mnome++;
@@ -146,9 +140,28 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
     //conforme usa a funcao utimens_brisafs cuidas das datas, esta funcao já foi implementada pelo grupo
     superbloco[isuperbloco].data1 = time(NULL);
     superbloco[isuperbloco].data2 = time(NULL);
-   if (conteudo != NULL)
-        memcpy(disco + DISCO_OFFSET(bloco), conteudo, tamanho);
+    if (ceil(tamanho/TAM_BLOCO) == 0)
+        superbloco[isuperbloco].quant_blocos = 1;
     else
+      superbloco[isuperbloco].quant_blocos = ceil(tamanho/TAM_BLOCO);
+
+    //aumetar marcacao de espaco de gravacao do arquivo
+    if((gravacao_bloco_conteudo + superbloco[isuperbloco].quant_blocos) < 500000){
+        gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[isuperbloco].quant_blocos;
+    }else{
+        //significa que todos os blocos estao ocupados e nao tem espaço para escrever mais
+        printf("Todos os blocos de conteudo foram usados, tamnho maximo atingido, conteudo do arquivo nao foi gravado");
+        return;
+    }
+
+   if (conteudo != NULL){
+       for (int i = 0; i < superbloco[isuperbloco].quant_blocos; i++) {
+            if(i-1 == superbloco[isuperbloco].quant_blocos)
+                memcpy(disco + DISCO_OFFSET(bloco + i), conteudo, TAM_BLOCO);
+            else
+                memcpy(disco + DISCO_OFFSET(bloco + i), conteudo, tamanho%TAM_BLOCO);
+        }
+   }else
         memset(disco + DISCO_OFFSET(bloco), 0, tamanho);
     
     persistecia_write();
@@ -230,6 +243,7 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
     //Erro arquivo não encontrado
     return -ENOENT;
 }
+
 
 
 /* Devolve ao FUSE a estrutura completa do diretório indicado pelo
