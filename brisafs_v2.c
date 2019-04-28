@@ -167,7 +167,7 @@ void init_brisafs() {
         if (superbloco[i].bloco == 0) { //Livre!
             if(i > 0)
                 gravacao_bloco_conteudo = quant_blocos_superinode + i -1;
-            return;
+            break;
         }
     }
 
