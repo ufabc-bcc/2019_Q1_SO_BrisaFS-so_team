@@ -152,7 +152,7 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
         memcpy(disco + DISCO_OFFSET(bloco), conteudo, tamanho);
     else
         memset(disco + DISCO_OFFSET(bloco), 0, tamanho);
-    }
+    
     persistecia_write();
 }
 
