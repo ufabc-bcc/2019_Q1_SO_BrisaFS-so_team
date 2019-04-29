@@ -233,12 +233,8 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
             stbuf->st_nlink = 1;
             stbuf->st_size = superbloco[i].tamanho;
             stbuf->st_atime = time(NULL);
-            printf("%ld\n",superbloco[i].data1);
-            printf("%ld\n",superbloco[i].data2);
-
             stbuf->st_mtime = superbloco[i].data1;
             stbuf->st_ctime = superbloco[i].data2;
-
             return 0; //OK, arquivo encontrado
         }
     }
