@@ -67,7 +67,7 @@
 /* Para o superbloco e o resto para os arquivos. Os arquivos nesta
    implementação também tem uma quantidade de bloco, para conseguir guardar aquivos maiores que 1 G
    Se cada arquivo puder usar mais de 1 bloco. */
-#define MAX_BLOCOS (500000 + quant_blocos_superinode)
+#define MAX_BLOCOS (5000 + quant_blocos_superinode)
 /* Parte da sua tarefa será armazenar e recuperar corretamente os
    direitos dos arquivos criados */
 #define DIREITOS_PADRAO 0644
@@ -463,7 +463,19 @@ static int chown_brisafs(const char *path, uid_t usuario, gid_t grupo) {
         return 0; //OK, arquivo encontrado
         }
     } 
-    // Cuidado! O sistema BrisaFS não aceita horários. O seu deverá aceitar!
+    return 0;
+}
+
+static int chmod_brisafs(const char *path, mode_t modo) {
+
+        //Busca arquivo na lista de inodes
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (superbloco[i].bloco != 0 //Bloco sendo usado
+            && compara_nome(superbloco[i].nome, path)) { //Nome bate
+            superbloco[i].direitos = modo;
+        return 0; //OK, arquivo encontrado
+        }
+    } 
     return 0;
 }
 
@@ -488,7 +500,7 @@ static int create_brisafs(const char *path, mode_t mode,
 /* Esta estrutura contém os ponteiros para as operações implementadas
    no sdasFS */
 static struct fuse_operations fuse_brisafs = {
-                                              //.chmod = chmod_brisafs,
+                                              .chmod = chmod_brisafs,
                                               .chown = chown_brisafs,
                                               .create = create_brisafs,
                                               .fsync = fsync_brisafs,
