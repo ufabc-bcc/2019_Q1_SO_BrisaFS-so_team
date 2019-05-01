@@ -63,11 +63,12 @@
 /* A atual implementação utiliza apenas um bloco para todos os inodes
    de todos os arquivos do sistema. Ou seja, cria um limite rígido no
    número de arquivos e tamanho do dispositivo. - Esta parte foi desmontada */
-#define MAX_FILES 2048
+#define MAX_FILES (int)floor(memoria_disponivel/QUANT_INODE)
+#define QUANT_INODE 200
 /* Para o superbloco e o resto para os arquivos. Os arquivos nesta
    implementação também tem uma quantidade de bloco, para conseguir guardar aquivos maiores que 1 G
    Se cada arquivo puder usar mais de 1 bloco. */
-#define MAX_BLOCOS (500000 + quant_blocos_superinode)
+#define MAX_BLOCOS (memoria_disponivel + quant_blocos_superinode)
 /* Parte da sua tarefa será armazenar e recuperar corretamente os
    direitos dos arquivos criados */
 #define DIREITOS_PADRAO 0644
@@ -98,14 +99,14 @@ FILE *Tmp_disco;
 inode *superbloco;
 //Saber onde estou gravando neste momento
 int gravacao_bloco_conteudo;
-//Saber onde estou lendo neste momento
-int read_pass;
+//Memoria disponivel para usar no SO
+int memoria_disponivel = 500000;
 
 #define DISCO_OFFSET(B) (B * TAM_BLOCO)
 
 void persistecia_write(){
     Tmp_disco = fopen("Persistencia","wb");
-    fwrite(disco,1,(gravacao_bloco_conteudo+1)*TAM_BLOCO,Tmp_disco);
+    fwrite(disco,1,(gravacao_bloco_conteudo+2-quant_blocos_superinode)*TAM_BLOCO + ceil(memoria_disponivel/QUANT_INODE),Tmp_disco);
     fflush(stdout);
     fclose(Tmp_disco);    
 }
@@ -148,7 +149,7 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
       superbloco[isuperbloco].quant_blocos = ceil(tamanho/TAM_BLOCO);
 
     //aumetar marcacao de espaco de gravacao do arquivo
-    if((gravacao_bloco_conteudo + superbloco[isuperbloco].quant_blocos) < 500000){
+    if((gravacao_bloco_conteudo + superbloco[isuperbloco].quant_blocos) < memoria_disponivel){
         gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[isuperbloco].quant_blocos;
     }else{
         //significa que todos os blocos estao ocupados e nao tem espaço para escrever mais
@@ -183,15 +184,12 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
 void init_brisafs() {
     persistecia_read();
     superbloco = (inode*) disco; //posição 0
-    read_pass = 0;
 
     //Garante que não ocorre sobreescrita de dados antigos da persistencia.
     gravacao_bloco_conteudo = quant_blocos_superinode;
     for (int i = 0; i < MAX_FILES; i++) {
         gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[i].quant_blocos;
         if (superbloco[i].bloco == 0) { //Livre!
-            if(i > 0)
-                gravacao_bloco_conteudo = quant_blocos_superinode + i -1;
             break;
         }
     }
@@ -328,8 +326,10 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
             continue;
         }
         if (compara_nome(path, superbloco[i].nome)) {//achou!
-            if(superbloco[i].tamanho == 0)
+            if(superbloco[i].tamanho == 0){
                 superbloco[i].bloco = gravacao_bloco_conteudo + 1;
+                gravacao_bloco_conteudo = gravacao_bloco_conteudo +1;
+            }
         
             superbloco[i].tamanho = offset + size;
             int temp_bloco = superbloco[i].quant_blocos;
@@ -338,7 +338,7 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
             else
                 superbloco[i].quant_blocos = ceil(superbloco[i].tamanho/TAM_BLOCO);
 
-            if((gravacao_bloco_conteudo + superbloco[i].quant_blocos - temp_bloco) < 500000){
+            if((gravacao_bloco_conteudo + superbloco[i].quant_blocos - temp_bloco) < memoria_disponivel){
                 gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[i].quant_blocos - temp_bloco;
             }else{
                 //significa que todos os blocos estao ocupados e nao tem espaço para escrever mais
