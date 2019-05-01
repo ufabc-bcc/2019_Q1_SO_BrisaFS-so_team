@@ -327,6 +327,7 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
             }
 
             if (buf != NULL){
+                //este parte do codigo cuida dos ajuster para que os arquivos maiores que o bloco possam ser escritos
                 for (int j = 0; j < superbloco[j].quant_blocos; j++) {
                     if(i != superbloco[i].quant_blocos-1){
                         memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j) + offset, buf + (j*TAM_BLOCO), TAM_BLOCO);
