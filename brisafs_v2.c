@@ -27,7 +27,7 @@
 /*
     Nota 5
         Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco". --FEITO
-            Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado
+            Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado --Não usamos está função
         Armazenamento e recuperação de datas (via ls por exemplo)   --FEITO
         Armazenamento e alteração direitos usando chown e chgrp
         Aumento do número máximo de arquivos para pelo menos 1024   --FEITO
@@ -39,7 +39,7 @@
 
     Nota 10
         Suporte a "discos" de tamanhos arbitrários
-        Arquivos com tamanho máximo de pelo menos 1GB
+        Arquivos com tamanho máximo de pelo menos 1GB --Iniciado
         Controle de arquivos abertos/fechados
 
     Nota 12
@@ -159,7 +159,6 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
                 memcpy(disco + DISCO_OFFSET(bloco) + DISCO_OFFSET(i), conteudo + (i*TAM_BLOCO) , TAM_BLOCO);
             }
             else{
-                printf("Passei por aqui 2");            
                 memcpy(disco + DISCO_OFFSET(bloco) + DISCO_OFFSET(i), conteudo + (i*TAM_BLOCO) ,tamanho - floor(tamanho/TAM_BLOCO) * TAM_BLOCO);
             }
         }
@@ -332,14 +331,12 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
             }
 
             if (buf != NULL){
-                for (int i = 0; i < superbloco[i].quant_blocos; i++) {
+                for (int j = 0; j < superbloco[j].quant_blocos; j++) {
                     if(i != superbloco[i].quant_blocos-1){
-                        printf("Passei por aqui 1");
-                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(i) + offset, buf + (i*TAM_BLOCO), TAM_BLOCO);
+                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j) + offset, buf + (j*TAM_BLOCO), TAM_BLOCO);
                     }
                     else{
-                        printf("Passei por aqui 2");            
-                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(i) + offset, buf + (i*TAM_BLOCO), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
+                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j) + offset, buf + (j*TAM_BLOCO), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
                     }
                 }
             }else
