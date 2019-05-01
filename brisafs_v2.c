@@ -67,7 +67,7 @@
 /* Para o superbloco e o resto para os arquivos. Os arquivos nesta
    implementação também tem uma quantidade de bloco, para conseguir guardar aquivos maiores que 1 G
    Se cada arquivo puder usar mais de 1 bloco. */
-#define MAX_BLOCOS (500000 + quant_blocos_superinode)
+#define MAX_BLOCOS (5000 + quant_blocos_superinode)
 /* Parte da sua tarefa será armazenar e recuperar corretamente os
    direitos dos arquivos criados */
 #define DIREITOS_PADRAO 0644
@@ -242,6 +242,19 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
     return -ENOENT;
 }
 
+// Remove arquivos do Sistema Operacional
+static int unlink_brisafs(const char *path){
+ 	
+    int res;
+    res = unlink(path);
+    if(res == -1){
+        return -errno;
+        printf("TESTE01");
+    }
+     return 0;
+    printf("TESTE02"); 
+}
+
 /* Devolve ao FUSE a estrutura completa do diretório indicado pelo
    parâmetro path. Devolve 0 em caso de sucesso ou um código de
    erro. Atenção ao uso abaixo dos demais parâmetros. */
@@ -274,7 +287,6 @@ static int open_brisafs(const char *path, struct fuse_file_info *fi) {
    bytes, a partir do offset do arquivo path no buffer buf. */
 static int read_brisafs(const char *path, char *buf, size_t size,
                         off_t offset, struct fuse_file_info *fi) {
-
     //Procura o arquivo
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) //bloco vazio
@@ -302,7 +314,6 @@ static int read_brisafs(const char *path, char *buf, size_t size,
    size bytes, a partir do offset do arquivo path no buffer buf. */
 static int write_brisafs(const char *path, const char *buf, size_t size,
                          off_t offset, struct fuse_file_info *fi) {
-
     /*Tem que incrementar uma parte que move os inode e os conteudos
     conforme o espaco necessario para o armazenamento muda*/
     for (int i = 0; i < MAX_FILES; i++) {
@@ -458,6 +469,7 @@ static int create_brisafs(const char *path, mode_t mode,
 static struct fuse_operations fuse_brisafs = {
                                               .create = create_brisafs,
                                               .fsync = fsync_brisafs,
+                                              .unlink = unlink_brisafs,
                                               .getattr = getattr_brisafs,
                                               .mknod = mknod_brisafs,
                                               .open = open_brisafs,
@@ -466,6 +478,7 @@ static struct fuse_operations fuse_brisafs = {
                                               .truncate	= truncate_brisafs,
                                               .utimens = utimens_brisafs,
                                               .write = write_brisafs
+                                              
 };
 
 int main(int argc, char *argv[]) {
