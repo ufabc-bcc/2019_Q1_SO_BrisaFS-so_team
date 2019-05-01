@@ -96,7 +96,10 @@ FILE *Tmp_disco;
 
 //guarda os inodes dos arquivos
 inode *superbloco;
+//Saber onde estou gravando neste momento
 int gravacao_bloco_conteudo;
+//Saber onde estou lendo neste momento
+int read_pass;
 
 #define DISCO_OFFSET(B) (B * TAM_BLOCO)
 
@@ -154,6 +157,9 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
     }
 
    if (conteudo != NULL){
+        memcpy(disco + DISCO_OFFSET(bloco), conteudo,tamanho);
+
+       /*
        for (int i = 0; i < superbloco[isuperbloco].quant_blocos; i++) {
             if(i != superbloco[isuperbloco].quant_blocos-1){
                 memcpy(disco + DISCO_OFFSET(bloco) + DISCO_OFFSET(i), conteudo + (i*TAM_BLOCO) , TAM_BLOCO);
@@ -162,6 +168,7 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
                 memcpy(disco + DISCO_OFFSET(bloco) + DISCO_OFFSET(i), conteudo + (i*TAM_BLOCO) ,tamanho - floor(tamanho/TAM_BLOCO) * TAM_BLOCO);
             }
         }
+        */
    }else
         memset(disco + DISCO_OFFSET(bloco), 0, tamanho);
 
@@ -176,6 +183,7 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
 void init_brisafs() {
     persistecia_read();
     superbloco = (inode*) disco; //posição 0
+    read_pass = 0;
 
     //Garante que não ocorre sobreescrita de dados antigos da persistencia.
     gravacao_bloco_conteudo = quant_blocos_superinode;
@@ -280,15 +288,25 @@ static int read_brisafs(const char *path, char *buf, size_t size,
         if (superbloco[i].bloco == 0) //bloco vazio
             continue;
         if (compara_nome(path, superbloco[i].nome)) {//achou!
-            size_t len = superbloco[i].tamanho;
-            /*if (offset >= len) {//tentou ler além do fim do arquivo
+            size_t len = superbloco[i].tamanho;// - read_pass;
+            if(offset >= len){
                 return 0;
-            }*/
-            if (offset + size > len) {
-                memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco),len - offset);
+            }
+            if(offset + size > len){
+                memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco) + offset, len - offset);            
                 return len - offset;
             }
-            memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco), size);
+            memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco) + offset, size);
+            //este parte do codigo cuida dos ajuster para que os arquivos maiores que o bloco possam ser lidos
+            /*for (int j = 0; j < superbloco[j].quant_blocos; j++) {
+                if(i != superbloco[i].quant_blocos-1){
+                    memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), TAM_BLOCO);
+                }
+                else{
+                    memcpy(buf, disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
+                }
+            }*/
+            
             return size;
         }
     }
@@ -313,13 +331,14 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
         
             superbloco[i].tamanho = offset + size;
             superbloco[i].bloco = gravacao_bloco_conteudo + 1;
+            int temp_bloco = superbloco[i].quant_blocos;
             if (ceil(superbloco[i].tamanho/TAM_BLOCO) == 0)
                 superbloco[i].quant_blocos = 1;
             else
                 superbloco[i].quant_blocos = ceil(superbloco[i].tamanho/TAM_BLOCO);
 
-            if((gravacao_bloco_conteudo + superbloco[i].quant_blocos) < 500000){
-                gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[i].quant_blocos;
+            if((gravacao_bloco_conteudo + superbloco[i].quant_blocos - temp_bloco) < 500000){
+                gravacao_bloco_conteudo = gravacao_bloco_conteudo + superbloco[i].quant_blocos - temp_bloco;
             }else{
                 //significa que todos os blocos estao ocupados e nao tem espaço para escrever mais
                 printf("Todos os blocos de conteudo foram usados, tamnho maximo atingido, conteudo do arquivo nao foi gravado");
@@ -328,14 +347,16 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
 
             if (buf != NULL){
                 //este parte do codigo cuida dos ajuster para que os arquivos maiores que o bloco possam ser escritos
-                for (int j = 0; j < superbloco[j].quant_blocos; j++) {
+                //size = superbloco[i].tamanho;
+                memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, buf, size);
+                /*for (int j = 0; j < superbloco[j].quant_blocos; j++) {
                     if(i != superbloco[i].quant_blocos-1){
-                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j) + offset, buf + (j*TAM_BLOCO), TAM_BLOCO);
+                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), buf + (j*TAM_BLOCO), TAM_BLOCO);
                     }
                     else{
-                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j) + offset, buf + (j*TAM_BLOCO), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
+                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), buf + (j*TAM_BLOCO), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
                     }
-                }
+                }*/
             }else
                 memset(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, 0, size);
 
