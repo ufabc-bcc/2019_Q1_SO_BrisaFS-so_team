@@ -181,7 +181,15 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
    seja necessário "formatar" o arquivo pegando o seu tamanho e
    inicializando todas as posições (ou apenas o(s) superbloco(s))
    com os valores apropriados */
+
 void init_brisafs() {
+
+    //Verifica a quantidade de memória RAM disponivel no sistema operacional
+    char *p;
+    p = (char *)malloc(50 * sizeof(int));
+    *p = system("Mem=`egrep MemTotal /proc/meminfo | awk '{print $2}'` && echo Memoria RAM: $(($Mem/1024))MB");
+    printf("%s",p);
+
     persistecia_read();
     superbloco = (inode*) disco; //posição 0
 
