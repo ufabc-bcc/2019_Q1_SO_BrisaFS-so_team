@@ -63,8 +63,8 @@
 /* A atual implementação utiliza apenas um bloco para todos os inodes
    de todos os arquivos do sistema. Ou seja, cria um limite rígido no
    número de arquivos e tamanho do dispositivo. - Esta parte foi desmontada */
-#define MAX_FILES (int)floor(memoria_disponivel/QUANT_INODE)
-#define QUANT_INODE 200
+#define MAX_FILES (int)floor(memoria_disponivel*QUANT_INODE)
+#define QUANT_INODE 0.005
 /* Para o superbloco e o resto para os arquivos. Os arquivos nesta
    implementação também tem uma quantidade de bloco, para conseguir guardar aquivos maiores que 1 G
    Se cada arquivo puder usar mais de 1 bloco. */
@@ -100,7 +100,7 @@ inode *superbloco;
 //Saber onde estou gravando neste momento
 int gravacao_bloco_conteudo;
 //Memoria disponivel para usar no SO
-int memoria_disponivel = 500000;
+int memoria_disponivel;
 
 #define DISCO_OFFSET(B) (B * TAM_BLOCO)
 
@@ -181,14 +181,7 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
    seja necessário "formatar" o arquivo pegando o seu tamanho e
    inicializando todas as posições (ou apenas o(s) superbloco(s))
    com os valores apropriados */
-
 void init_brisafs() {
-
-    //Verifica a quantidade de memória RAM disponivel no sistema operacional
-    char *p;
-    p = (char *)malloc(50 * sizeof(int));
-    *p = system("Mem=`egrep MemTotal /proc/meminfo | awk '{print $2}'` && echo Memoria RAM: $(($Mem/1024))MB");
-    printf("%s",p);
 
     persistecia_read();
     superbloco = (inode*) disco; //posição 0
@@ -501,14 +494,26 @@ static struct fuse_operations fuse_brisafs = {
 
 int main(int argc, char *argv[]) {
 
+    //funcao para descobrir memoria ram utilizavel para o projeto
+    long p;
+    p = system("MemTotal /proc/meminfo");
+    printf("%lu",p);
+
+    memoria_disponivel = p;
+    memoria_disponivel = (long)(memoria_disponivel)*0.5;
+    memoria_disponivel = 5000000;
+    
     printf("Iniciando o BrisaFS...\n");
     printf("\t Tamanho máximo de arquivo = n bloco = %lu bytes\n", TAM_BLOCO * (MAX_BLOCOS - quant_blocos_superinode));
     printf("\t Tamanho do bloco: %u\n", TAM_BLOCO);
     printf("\t Tamanho do inode: %lu\n", sizeof(inode));
     printf("\t Número máximo de arquivos: %u\n", MAX_FILES);
-    printf("\t Quantidade de blocos para conter o superbloco de 2048 arquivos: %lu\n", quant_blocos_superinode);
+    printf("\t Quantidade de blocos para conter o superbloco de %u arquivos: %lu\n",MAX_FILES, quant_blocos_superinode);
     printf("\t Número máximo de blocos: %lu\n", MAX_BLOCOS);
+    printf("\t Memoria RAM que será usada nos blocos: %u + 0.5%% para os inode",memoria_disponivel);
     //printf("\t Comparando tamanhos %ld\n",strlen("Adoro as aulas de SO da UFABC!\n"));
+
+    //Verifica a quantidade de memória RAM disponivel no sistema operacional
     init_brisafs();
 
     return fuse_main(argc, argv, &fuse_brisafs, NULL);
