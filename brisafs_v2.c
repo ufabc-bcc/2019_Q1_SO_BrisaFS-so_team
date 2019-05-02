@@ -361,7 +361,6 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
             }else
                 memset(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, 0, size);
 
-        persistecia_write();
         return size;
         }
     }
@@ -443,8 +442,9 @@ static int fsync_brisafs(const char *path, int isdatasync,
 
 /* Ajusta a data de acesso e modificação do arquivo com resolução de nanosegundos */
 static int utimens_brisafs(const char *path, const struct timespec ts[2]) {
-
-        //Busca arquivo na lista de inodes
+    //Salva os arquivos de memoria no disco
+    persistecia_write();
+    //Busca arquivo na lista de inodes
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
