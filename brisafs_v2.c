@@ -26,24 +26,25 @@
 
 /*
     Nota 5
-        Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco". --FEITO
-            Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado --Não usamos está função
-        Armazenamento e recuperação de datas (via ls por exemplo)   --FEITO
-        Armazenamento e alteração direitos usando chown e chgrp
-        Aumento do número máximo de arquivos para pelo menos 1024   --FEITO
+        Persistência - Incluindo a criação e "formatação" de um arquivo novo para conter o seu "disco".     --FEITO
+            Veja a função ftruncate para criar um arquivo com o tamanho pré-determinado                     --Não usamos está função, criamos nos metodos de read e write.
+        Armazenamento e recuperação de datas (via ls por exemplo)       --FEITO
+        Armazenamento e alteração direitos usando chown e chgrp         --FEITO
+        Aumento do número máximo de arquivos para pelo menos 1024       --FEITO
 
     Nota 7
-        Aumento do tamanho máximo do arquivo para pelo menos 64 MB --Iniciado
-        Suporte à criação de diretórios
-        Exclusão de arquivos
+        Aumento do tamanho máximo do arquivo para pelo menos 64 MB      --FEITO
+        Suporte à criação de diretórios                                 --Não iniciado
+        Exclusão de arquivos                                            --Iniciado
 
     Nota 10
-        Suporte a "discos" de tamanhos arbitrários
-        Arquivos com tamanho máximo de pelo menos 1GB --Iniciado
-        Controle de arquivos abertos/fechados
+        Suporte a "discos" de tamanhos arbitrários                      --FEITO, utilizamos a RAM como disco, e só usamos o DISCO para persistencia.
+        Arquivos com tamanho máximo de pelo menos 1GB                   --FEITO
+        Controle de arquivos abertos/fechados                           --Não Iniciado
 
     Nota 12
-        Funcionalidades julgadas excepcionais além das pedidas podem gerar um bônus de até 2 pontos. Converse com o professor para saber se a sua ideia é considerada excepcional e quanto ela vale.
+        Funcionalidades julgadas excepcionais além das pedidas podem gerar um bônus de até 2 pontos. 
+        Converse com o professor para saber se a sua ideia é considerada excepcional e quanto ela vale.
 
 */
 
@@ -64,7 +65,7 @@
    de todos os arquivos do sistema. Ou seja, cria um limite rígido no
    número de arquivos e tamanho do dispositivo. - Esta parte foi desmontada */
 #define MAX_FILES (int)floor(memoria_disponivel*QUANT_INODE)
-#define QUANT_INODE 0.005
+#define QUANT_INODE 0.01
 /* Para o superbloco e o resto para os arquivos. Os arquivos nesta
    implementação também tem uma quantidade de bloco, para conseguir guardar aquivos maiores que 1 G
    Se cada arquivo puder usar mais de 1 bloco. */
@@ -253,6 +254,9 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
             stbuf->st_atime = time(NULL);
             stbuf->st_mtime = superbloco[i].data1;
             stbuf->st_ctime = superbloco[i].data2;
+            stbuf->st_uid = superbloco[i].usuario;
+            stbuf->st_gid = superbloco[i].grupo;
+            
             return 0; //OK, arquivo encontrado
         }
     }
@@ -508,7 +512,7 @@ static int create_brisafs(const char *path, mode_t mode,
 }
 
 static int chown_brisafs(const char *path, uid_t usuario, gid_t grupo) {
-
+/*
         //Busca arquivo na lista de inodes
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
@@ -518,11 +522,12 @@ static int chown_brisafs(const char *path, uid_t usuario, gid_t grupo) {
         return 0; //OK, arquivo encontrado
         }
     } 
+    */
     return 0;
 }
 
 static int chmod_brisafs(const char *path, mode_t modo) {
-
+/*
         //Busca arquivo na lista de inodes
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
@@ -530,7 +535,7 @@ static int chmod_brisafs(const char *path, mode_t modo) {
             superbloco[i].direitos = modo;
         return 0; //OK, arquivo encontrado
         }
-    } 
+    } */
     return 0;
 }
 
@@ -568,7 +573,7 @@ long GetRamInKB(void)
         if(sscanf(line, "MemFree: %lu kB", &ram) == 1)
         {
             fclose(meminfo);
-            return ram/2;
+            return ram*0.8;
         }
     }
 
@@ -583,7 +588,7 @@ long GetRamInKB(void)
 int main(int argc, char *argv[]) {
 
     //funcao para descobrir memoria ram utilizavel para o projeto
-    memoria_disponivel = GetRamInKB()*5;
+    memoria_disponivel = GetRamInKB();
 //    memoria_disponivel = 500;    
 
     printf("Iniciando o BrisaFS...\n");
