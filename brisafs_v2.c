@@ -327,10 +327,6 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
             continue;
         }
         if (compara_nome(path, superbloco[i].nome)) {//achou!
-            if(superbloco[i].tamanho == 0){
-                superbloco[i].bloco = gravacao_bloco_conteudo + 1;
-                gravacao_bloco_conteudo = gravacao_bloco_conteudo +1;
-            }
         
             superbloco[i].tamanho = offset + size;
             int temp_bloco = superbloco[i].quant_blocos;
