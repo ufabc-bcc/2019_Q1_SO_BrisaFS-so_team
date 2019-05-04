@@ -259,6 +259,20 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
     return -ENOENT;
 }
 
+// Remove arquivos do Sistema Operacional
+static int unlink_brisafs(const char *path){
+ 	
+    int res;
+    res = unlink(path);
+    if(res == -1){
+        return -errno;
+        printf("TESTE01");
+    }
+     return 0;
+    printf("TESTE02"); 
+}
+
+
 /* Devolve ao FUSE a estrutura completa do diretório indicado pelo
    parâmetro path. Devolve 0 em caso de sucesso ou um código de
    erro. Atenção ao uso abaixo dos demais parâmetros. */
@@ -497,6 +511,7 @@ static int create_brisafs(const char *path, mode_t mode,
 static struct fuse_operations fuse_brisafs = {
                                               .create = create_brisafs,
                                               .fsync = fsync_brisafs,
+                                              .unlink = unlink_brisafs,
                                               .getattr = getattr_brisafs,
                                               .mknod = mknod_brisafs,
                                               .open = open_brisafs,
@@ -504,7 +519,7 @@ static struct fuse_operations fuse_brisafs = {
                                               .readdir = readdir_brisafs,
                                               .truncate	= truncate_brisafs,
                                               .utimens = utimens_brisafs,
-                                              .write = write_brisafs
+.write = write_brisafs
 };
 //Retirado tanto a ideia quanto o pedaço para conseguir a memoria ram do:
 //https://stackoverflow.com/questions/349889/how-do-you-determine-the-amount-of-linux-system-ram-in-c
