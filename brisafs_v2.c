@@ -81,7 +81,7 @@ typedef char byte;
 typedef struct {
     char nome[250];
     uint16_t direitos;
-    uint16_t tamanho;
+    long int tamanho;
     time_t data1;
     time_t data2;
     uint16_t bloco;
@@ -106,7 +106,7 @@ int memoria_disponivel;
 
 void persistecia_write(){
     Tmp_disco = fopen("Persistencia","wb");
-    fwrite(disco,1,(gravacao_bloco_conteudo+2-quant_blocos_superinode)*TAM_BLOCO + ceil(memoria_disponivel/QUANT_INODE),Tmp_disco);
+    fwrite(disco,1,(gravacao_bloco_conteudo+2)*TAM_BLOCO,Tmp_disco);
     fflush(stdout);
     fclose(Tmp_disco);    
 }
@@ -137,16 +137,16 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
 
     strcpy(superbloco[isuperbloco].nome, mnome);
     superbloco[isuperbloco].direitos = direitos;
-    superbloco[isuperbloco].tamanho = tamanho;
+    superbloco[isuperbloco].tamanho = tamanho + superbloco[isuperbloco].tamanho;
     superbloco[isuperbloco].bloco = bloco;
     //Iniciar com as datas preenchidas
     //conforme usa a funcao utimens_brisafs cuidas das datas, esta funcao já foi implementada pelo grupo
     superbloco[isuperbloco].data1 = time(NULL);
     superbloco[isuperbloco].data2 = time(NULL);
-    if (ceil(tamanho/TAM_BLOCO) == 0)
+    if (ceil(superbloco[isuperbloco].tamanho/TAM_BLOCO) == 0)
         superbloco[isuperbloco].quant_blocos = 1;
     else
-      superbloco[isuperbloco].quant_blocos = ceil(tamanho/TAM_BLOCO);
+      superbloco[isuperbloco].quant_blocos = ceil(superbloco[isuperbloco].tamanho/TAM_BLOCO);
 
     //aumetar marcacao de espaco de gravacao do arquivo
     if((gravacao_bloco_conteudo + superbloco[isuperbloco].quant_blocos) < memoria_disponivel){
@@ -198,7 +198,17 @@ void init_brisafs() {
     //Cria um arquivo na mão de boas vindas
     char *nome = "UFABC SO 2019.txt";
     //Cuidado! pois se tiver acentos em UTF8 uma letra pode ser mais que um byte
-    char *conteudo = "Adoro as aulas de SO da UFABC!\n";
+    char *conteudo = "Adoro as aulas de SO da UFABC!\n"; /*&
+    (char)"\t Tamanho máximo de arquivo = n bloco =" & (char)(TAM_BLOCO * (MAX_BLOCOS - quant_blocos_superinode)) &
+    (char)"bytes\n \t Tamanho do bloco: " & (char)TAM_BLOCO & 
+    (char)"\n \t Tamanho do inode: " & (char)sizeof(inode) & 
+    (char)"\n \t Número máximo de arquivos:" & (char)MAX_FILES & 
+    (char)"\n \t Quantidade de blocos para conter o superbloco de " & (char)MAX_FILES & 
+    (char)" arquivos: " & (char)quant_blocos_superinode & 
+    (char)"\n \t Número máximo de blocos: " & (char)MAX_BLOCOS & 
+    (char)"\n \t Memoria RAM que será usada nos blocos: " & (char)memoria_disponivel & 
+    (char)" + 0.5%% para os inode \n \t*/
+    
     //O quant_blocos_superinode está sendo usado pelo superbloco. O primeiro livre é o +1
     preenche_bloco(0, nome, DIREITOS_PADRAO, strlen(conteudo), quant_blocos_superinode + 1, (byte*)conteudo);
 }
@@ -327,9 +337,12 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
             continue;
         }
         if (compara_nome(path, superbloco[i].nome)) {//achou!
-        
-            superbloco[i].tamanho = offset + size;
+            if(superbloco[i].tamanho == 0)
+                gravacao_bloco_conteudo = gravacao_bloco_conteudo +1;
+                
+            superbloco[i].tamanho = superbloco[i].tamanho + size;
             int temp_bloco = superbloco[i].quant_blocos;
+            printf("\nO tamanho do arquivo é: %lu\n",size);
             if (ceil(superbloco[i].tamanho/TAM_BLOCO) == 0)
                 superbloco[i].quant_blocos = 1;
             else
@@ -342,21 +355,25 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
                 printf("Todos os blocos de conteudo foram usados, tamnho maximo atingido, conteudo do arquivo nao foi gravado");
                 return -EIO;
             }
+                printf("O local do vetor onde está a escrita é: %u",gravacao_bloco_conteudo);
+                printf("A quantidade de blocos ocupada para o arquivo: %s é: %u\n",superbloco[i].nome,superbloco[i].quant_blocos);
 
-            if (buf != NULL){
-                //este parte do codigo cuida dos ajuster para que os arquivos maiores que o bloco possam ser escritos
-                //size = superbloco[i].tamanho;
                 memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, buf, size);
-                /*for (int j = 0; j < superbloco[j].quant_blocos; j++) {
+
+            /*if (buf != NULL){
+                este parte do codigo cuida dos ajuster para que os arquivos maiores que o bloco possam ser escritos
+                size = superbloco[i].tamanho;
+                memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, buf, size);
+                for (int j = 0; j < superbloco[j].quant_blocos; j++) {
                     if(i != superbloco[i].quant_blocos-1){
                         memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), buf + (j*TAM_BLOCO), TAM_BLOCO);
                     }
                     else{
                         memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), buf + (j*TAM_BLOCO), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
                     }
-                }*/
+                }
             }else
-                memset(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, 0, size);
+                memset(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, 0, size);*/
 
         return size;
         }
@@ -366,6 +383,7 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
     //mudando a inicial do i, para evitar escrever nos blocos reservados
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco == 0) {//ninguem usando
+            //gravacao_bloco_conteudo = gravacao_bloco_conteudo +1;
             preenche_bloco (i, path, DIREITOS_PADRAO, size, gravacao_bloco_conteudo + 1, buf);
             return size;
         }
@@ -390,7 +408,7 @@ static int truncate_brisafs(const char *path, off_t size) {
         }
     }
     if (findex != -1) {// arquivo existente
-        superbloco[findex].tamanho = size;
+        //superbloco[findex].tamanho = size + superbloco[findex].tamanho;
         return 0;
     } else {// Arquivo novo
         //Acha o primeiro bloco vazio
@@ -401,6 +419,7 @@ static int truncate_brisafs(const char *path, off_t size) {
             }
         }
     }
+    
     return 0;
 }
 
@@ -487,26 +506,48 @@ static struct fuse_operations fuse_brisafs = {
                                               .utimens = utimens_brisafs,
                                               .write = write_brisafs
 };
+//Retirado tanto a ideia quanto o pedaço para conseguir a memoria ram do:
+//https://stackoverflow.com/questions/349889/how-do-you-determine-the-amount-of-linux-system-ram-in-c
+//Foi modificado para utilização no projeot, mantive os comentarios originais, e a estrutura original
+long GetRamInKB(void)
+{
+    char line[256];
+    FILE *meminfo = fopen("/proc/meminfo", "r");
+    if(meminfo == NULL)
+        printf("Ocorreu um erro, iniciando com memoria padra.");
+    while(fgets(line, sizeof(line), meminfo))
+    {
+        long ram;
+        //Modificado para retornar a memoria livre do pc
+        if(sscanf(line, "MemFree: %lu kB", &ram) == 1)
+        {
+            fclose(meminfo);
+            return ram/2;
+        }
+    }
+
+    // If we got here, then we couldn't find the proper line in the meminfo file:
+    // do something appropriate like return an error code, throw an exception, etc.
+    fclose(meminfo);
+    //Vai tentar reservar esta quantia (que eu ussei para teste em casa), caso nao consiga encontrar
+    return 50000;
+}
+
 
 int main(int argc, char *argv[]) {
 
     //funcao para descobrir memoria ram utilizavel para o projeto
-    long p;
-    p = system("MemTotal /proc/meminfo");
-    printf("%lu",p);
+    memoria_disponivel = GetRamInKB()*5;
+//    memoria_disponivel = 500;    
 
-    memoria_disponivel = p;
-    memoria_disponivel = (long)(memoria_disponivel)*0.5;
-    memoria_disponivel = 5000000;
-    
     printf("Iniciando o BrisaFS...\n");
-    printf("\t Tamanho máximo de arquivo = n bloco = %lu bytes\n", TAM_BLOCO * (MAX_BLOCOS - quant_blocos_superinode));
+    printf("\t Tamanho máximo de arquivo = n bloco = %lu\n", TAM_BLOCO * (MAX_BLOCOS - quant_blocos_superinode));
     printf("\t Tamanho do bloco: %u\n", TAM_BLOCO);
     printf("\t Tamanho do inode: %lu\n", sizeof(inode));
     printf("\t Número máximo de arquivos: %u\n", MAX_FILES);
     printf("\t Quantidade de blocos para conter o superbloco de %u arquivos: %lu\n",MAX_FILES, quant_blocos_superinode);
     printf("\t Número máximo de blocos: %lu\n", MAX_BLOCOS);
-    printf("\t Memoria RAM que será usada nos blocos: %u + 0.5%% para os inode",memoria_disponivel);
+    printf("\t Memoria RAM que será usada nós blocos: %u + 0.5%% para os inode\n",memoria_disponivel);
     //printf("\t Comparando tamanhos %ld\n",strlen("Adoro as aulas de SO da UFABC!\n"));
 
     //Verifica a quantidade de memória RAM disponivel no sistema operacional
