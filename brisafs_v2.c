@@ -85,8 +85,8 @@ typedef struct {
     long int tamanho;
     uid_t usuario;
     gid_t grupo;
-    time_t data1;
-    time_t data2;
+    time_t last_access;
+    time_t last_mod;
     uint16_t bloco;
     int quant_blocos;
 } inode;
@@ -146,8 +146,8 @@ void preenche_bloco (int isuperbloco, const char *nome, uint16_t direitos,
     superbloco[isuperbloco].bloco = bloco;
     //Iniciar com as datas preenchidas
     //conforme usa a funcao utimens_brisafs cuidas das datas, esta funcao já foi implementada pelo grupo
-    superbloco[isuperbloco].data1 = time(NULL);
-    superbloco[isuperbloco].data2 = time(NULL);
+    superbloco[isuperbloco].last_access = time(NULL);
+    superbloco[isuperbloco].last_mod = time(NULL);
     if (ceil(superbloco[isuperbloco].tamanho/TAM_BLOCO) == 0)
         superbloco[isuperbloco].quant_blocos = 1;
     else
@@ -235,8 +235,8 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
             stbuf->st_nlink = 1;
             stbuf->st_size = superbloco[i].tamanho;
             stbuf->st_atime = time(NULL);
-            stbuf->st_mtime = superbloco[i].data1;
-            stbuf->st_ctime = superbloco[i].data2;
+            stbuf->st_mtime = superbloco[i].last_access;
+            stbuf->st_ctime = superbloco[i].last_mod;
             stbuf->st_uid = superbloco[i].usuario;
             stbuf->st_gid = superbloco[i].grupo;
             
@@ -269,8 +269,8 @@ static int unlink_brisafs(const char *path){
             superbloco[i].tamanho = 0;
             superbloco[i].usuario = 0;
             superbloco[i].grupo = 0;
-            superbloco[i].data1 = 0;
-            superbloco[i].data2 = 0;
+            superbloco[i].last_access = 0;
+            superbloco[i].last_mod = 0;
             superbloco[i].bloco = 0;
             superbloco[i].quant_blocos = 0;
             break;
@@ -291,8 +291,8 @@ static int unlink_brisafs(const char *path){
             superbloco[i].tamanho = superbloco[i+1].tamanho;
             superbloco[i].usuario = superbloco[i+1].usuario;
             superbloco[i].grupo = superbloco[i+1].grupo;
-            superbloco[i].data1 = superbloco[i+1].data1;
-            superbloco[i].data2 = superbloco[i+1].data2;
+            superbloco[i].last_access = superbloco[i+1].last_access;
+            superbloco[i].last_mod = superbloco[i+1].last_mod;
             superbloco[i].bloco = superbloco[i+1].bloco - qnt_bloc_mov;
             superbloco[i].quant_blocos = superbloco[i+1].quant_blocos;
             //move o conteudo na memoria.
@@ -503,8 +503,8 @@ static int utimens_brisafs(const char *path, const struct timespec ts[2]) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
             //timespec.
-            superbloco[i].data1 = ts[0].tv_sec;
-            superbloco[i].data2 = ts[1].tv_sec;
+            superbloco[i].last_access = ts[0].tv_sec;
+            superbloco[i].last_mod = ts[1].tv_sec;
         return 0; //OK, arquivo encontrado
         }
     } 
