@@ -596,10 +596,10 @@ long GetRamInKB(void)
             //que equivale a aproximadamente 1,335GB, mais o 1% dos inodes.
             //ajuste ele comom total, pois ele cumpre os 2 requisitos da nota:
             // mais de 1024 arquivos, e o tamanho maximo minimo de 1G
-            if((ram*0.05)>350000)
+            if((ram*0.1)>350000)
                 return 350000;
             else
-                return ram*0.05;
+                return ram*0.1;
         }
     }
 
@@ -619,13 +619,13 @@ int main(int argc, char *argv[]) {
 
     //estou utilizando para controle dos status do projeto.
     printf("Iniciando o BrisaFS...\n");
-    printf("\t Tamanho máximo de arquivo = n bloco = %lu\n", TAM_BLOCO * (MAX_BLOCOS - quant_blocos_superinode));
-    printf("\t Tamanho do bloco: %u\n", TAM_BLOCO);
-    printf("\t Tamanho do inode: %lu\n", sizeof(inode));
+    printf("\t Tamanho máximo de arquivo = n bloco = %lu byte\n", TAM_BLOCO * (MAX_BLOCOS - quant_blocos_superinode));
+    printf("\t Tamanho do bloco: %u byte\n", TAM_BLOCO);
+    printf("\t Tamanho do inode: %lu byte\n", sizeof(inode));
     printf("\t Número máximo de arquivos: %u\n", MAX_FILES);
-    printf("\t Quantidade de blocos para conter o superbloco de %u arquivos: %lu\n",MAX_FILES, quant_blocos_superinode);
+    printf("\t Quantidade de blocos para conter o superbloco de %u arquivos: %lu blocos\n",MAX_FILES, quant_blocos_superinode);
     printf("\t Número máximo de blocos: %lu\n", MAX_BLOCOS);
-    printf("\t Memoria RAM que será usada nós blocos: %u + 0.1%% para os inode\n",memoria_disponivel);
+    printf("\t Memoria RAM que será usada nós blocos: %u KB + 0.1%% para os inode\n",memoria_disponivel);
 
     //Verifica a quantidade de memória RAM disponivel no sistema operacional
     init_brisafs();
