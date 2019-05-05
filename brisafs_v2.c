@@ -35,7 +35,7 @@
     Nota 7
         Aumento do tamanho máximo do arquivo para pelo menos 64 MB      --FEITO
         Suporte à criação de diretórios                                 --Não iniciado
-        Exclusão de arquivos                                            --Iniciado
+        Exclusão de arquivos                                            --FEITO
 
     Nota 10
         Suporte a "discos" de tamanhos arbitrários                      --FEITO, utilizamos a RAM como disco, e só usamos o DISCO para persistencia.
@@ -251,49 +251,62 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
 // Remove arquivos do Sistema Operacional
 static int unlink_brisafs(const char *path){
  	
-long int qnt_bloc_mov;
-int i;
-
-  for (i=0; i < MAX_FILES; i++) {
+    //quantidade de blocos que ficaram livres, ou seja, que devem ser movidos
+    long int qnt_bloc_mov = 0;
+    //local onde do superbloco onde foi zerado.
+    int i;
+    //Deleta o inode do bloco deletado, apagando as informações que permitem
+    //rastrealo, porem não apaga o conteudo
+    for (i=0; i <= MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
 
-            qnt_bloc_mov = superbloco[i].quant_blocos;
-
-                    for (int x = 0; x < 250; x++) {
-                            superbloco[i].nome[x]=0;
-                    }
-                superbloco[i].direitos = 0;
-                superbloco[i].tamanho = 0;
-                superbloco[i].usuario = 0;
-                superbloco[i].grupo = 0;
-                superbloco[i].data1 = 0;
-                superbloco[i].data2 = 0;
-                superbloco[i].bloco = 0;
-                superbloco[i].quant_blocos = 0;
-                break;
-
+             qnt_bloc_mov = superbloco[i].quant_blocos;
+             for (int x = 0; x < 250; x++) {
+                superbloco[i].nome[x]=0;
+            }
+            superbloco[i].direitos = 0;
+            superbloco[i].tamanho = 0;
+            superbloco[i].usuario = 0;
+            superbloco[i].grupo = 0;
+            superbloco[i].data1 = 0;
+            superbloco[i].data2 = 0;
+            superbloco[i].bloco = 0;
+            superbloco[i].quant_blocos = 0;
+            break;
         //return 0; //OK, arquivo encontrado
         }
-    } 
-
- for (;i < MAX_FILES; i++) {
-        if (superbloco[i].bloco != 0){
-                superbloco[i].direitos = superbloco[i+1].direitos;
-                superbloco[i].tamanho = superbloco[i+1].tamanho;
-                superbloco[i].usuario = superbloco[i+1].usuario;
-                superbloco[i].grupo = superbloco[i+1].grupo;
-                superbloco[i].data1 = superbloco[i+1].data1;
-                superbloco[i].data2 = superbloco[i+1].data2;
-                superbloco[i].bloco = superbloco[i+1].bloco - qnt_bloc_mov;
-                superbloco[i].quant_blocos = superbloco[i+1].quant_blocos;
-    }
-     else{
-            break;
+        if(i == MAX_FILES){
+            printf("Impossivel deletar, pois arquivo não existe");
+            return 0;
         }
     } 
-persistecia_write();
-return 0;
+
+    //seta os ponteiros de todos os outros inodes, para que o espaço do arquivo apagado seja usado
+    //no superbloco isso nao seria necessario, porem decidimos fazer para manter a linearidade
+    //porem nos blocos de conteudo é necessario fazer
+    for (;i < MAX_FILES; i++) {
+        if (superbloco[i].bloco != 0){
+            superbloco[i].direitos = superbloco[i+1].direitos;
+            superbloco[i].tamanho = superbloco[i+1].tamanho;
+            superbloco[i].usuario = superbloco[i+1].usuario;
+            superbloco[i].grupo = superbloco[i+1].grupo;
+            superbloco[i].data1 = superbloco[i+1].data1;
+            superbloco[i].data2 = superbloco[i+1].data2;
+            superbloco[i].bloco = superbloco[i+1].bloco - qnt_bloc_mov;
+            superbloco[i].quant_blocos = superbloco[i+1].quant_blocos;
+            //move o conteudo na memoria.
+            memcpy(disco + DISCO_OFFSET(superbloco[i].bloco), disco + DISCO_OFFSET(superbloco[i+1].bloco),superbloco[i].tamanho);
+        }else
+            break;
+    }
+    //ao final dos for tanto os meus inodes quanto meus conteudo irao estar linear.
+    //volto meu ponteiro de escrita para o lugar vazio que foi aberta no final do vetor
+    //vale lembrar que nao estamos pensando em paralelismo, caso um arquivo seja escrito e apagado ao mesmo tempo
+    //teremos problemas por conta da possibilidade dos ponteiros se perderem e acabarem apagando o conteudo que acabou de ser inserido.
+    gravacao_bloco_conteudo = gravacao_bloco_conteudo - qnt_bloc_mov;
+    persistecia_write();
+    return 0;
 }
 
 
@@ -399,21 +412,6 @@ static int write_brisafs(const char *path, const char *buf, size_t size,
                 printf("A quantidade de blocos ocupada para o arquivo: %s é: %u\n",superbloco[i].nome,superbloco[i].quant_blocos);
 
                 memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, buf, size);
-
-            /*if (buf != NULL){
-                este parte do codigo cuida dos ajuster para que os arquivos maiores que o bloco possam ser escritos
-                size = superbloco[i].tamanho;
-                memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, buf, size);
-                for (int j = 0; j < superbloco[j].quant_blocos; j++) {
-                    if(i != superbloco[i].quant_blocos-1){
-                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), buf + (j*TAM_BLOCO), TAM_BLOCO);
-                    }
-                    else{
-                        memcpy(disco + DISCO_OFFSET(superbloco[i].bloco) + DISCO_OFFSET(j), buf + (j*TAM_BLOCO), size - floor(size/TAM_BLOCO) * TAM_BLOCO);
-                    }
-                }
-            }else
-                memset(disco + DISCO_OFFSET(superbloco[i].bloco) + offset, 0, size);*/
 
         return size;
         }
@@ -593,8 +591,8 @@ long GetRamInKB(void)
         if(sscanf(line, "MemTotal: %lu kB", &ram) == 1)
         {
             fclose(meminfo);
-            //estou pegando apenas 25% da ram.
-            return ram*0.0005;
+            //estou pegando apenas 5% da ram total.
+            return ram*0.05;
         }
     }
 
