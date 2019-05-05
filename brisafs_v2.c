@@ -529,6 +529,8 @@ static int create_brisafs(const char *path, mode_t mode,
     return ENOSPC;
 }
 
+/* Função que implementa o comando CHOWN, responsavel por alterar os campos
+'usuario' e 'grupo' do arquivo.*/
 static int chown_brisafs(const char *path, uid_t usuario, gid_t grupo) {
 
     //Busca arquivo na lista de inodes
@@ -543,6 +545,8 @@ static int chown_brisafs(const char *path, uid_t usuario, gid_t grupo) {
     return 0;
 }
 
+/* Função que implementa o comando CHMOD, responsavel por alterar o campo
+'direitos' do arquivo.*/
 static int chmod_brisafs(const char *path, mode_t modo) {
 
     //Busca arquivo na lista de inodes
