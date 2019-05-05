@@ -530,8 +530,8 @@ static int create_brisafs(const char *path, mode_t mode,
 }
 
 static int chown_brisafs(const char *path, uid_t usuario, gid_t grupo) {
-/*
-        //Busca arquivo na lista de inodes
+
+    //Busca arquivo na lista de inodes
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
@@ -539,21 +539,20 @@ static int chown_brisafs(const char *path, uid_t usuario, gid_t grupo) {
             superbloco[i].grupo = grupo;
         return 0; //OK, arquivo encontrado
         }
-    } 
-    */
+    }     
     return 0;
 }
 
 static int chmod_brisafs(const char *path, mode_t modo) {
-/*
-        //Busca arquivo na lista de inodes
+
+    //Busca arquivo na lista de inodes
     for (int i = 0; i < MAX_FILES; i++) {
         if (superbloco[i].bloco != 0 //Bloco sendo usado
             && compara_nome(superbloco[i].nome, path)) { //Nome bate
             superbloco[i].direitos = modo;
         return 0; //OK, arquivo encontrado
         }
-    } */
+    } 
     return 0;
 }
 
