@@ -586,12 +586,20 @@ long GetRamInKB(void)
     while(fgets(line, sizeof(line), meminfo))
     {
         long ram;
-        //Modificado para retornar a memoria livre do pc
+        //Modificado para retornar a memoria total do pc
+        //deixei fixado a memoria total para ter um valor fixo de maximo, dependendo do pc
         if(sscanf(line, "MemTotal: %lu kB", &ram) == 1)
         {
             fclose(meminfo);
             //estou pegando apenas 5% da ram total.
-            return ram*0.05;
+            //porem caso a quantidade de ram do computador passe este valor: 350000.
+            //que equivale a aproximadamente 1,335GB, mais o 1% dos inodes.
+            //ajuste ele comom total, pois ele cumpre os 2 requisitos da nota:
+            // mais de 1024 arquivos, e o tamanho maximo minimo de 1G
+            if((ram*0.05)>350000)
+                return 350000;
+            else
+                return ram*0.05;
         }
     }
 
@@ -599,7 +607,7 @@ long GetRamInKB(void)
     // do something appropriate like return an error code, throw an exception, etc.
     fclose(meminfo);
     //Vai tentar reservar esta quantia (que eu ussei para teste em casa), caso nao consiga encontrar
-    return 50000;
+    return 350000;
 }
 
 
@@ -607,7 +615,7 @@ int main(int argc, char *argv[]) {
 
     //funcao para descobrir memoria ram utilizavel para o projeto
     memoria_disponivel = GetRamInKB();
-//    memoria_disponivel = 500;    
+    //memoria_disponivel = 350000;    
 
     //estou utilizando para controle dos status do projeto.
     printf("Iniciando o BrisaFS...\n");
