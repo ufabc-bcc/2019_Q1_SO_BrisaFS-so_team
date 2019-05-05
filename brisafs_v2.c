@@ -251,14 +251,49 @@ static int getattr_brisafs(const char *path, struct stat *stbuf) {
 // Remove arquivos do Sistema Operacional
 static int unlink_brisafs(const char *path){
  	
-    int res;
-    res = unlink(path);
-    if(res == -1){
-        return -errno;
-        printf("TESTE01");
+long int qnt_bloc_mov;
+int i;
+
+  for (i=0; i < MAX_FILES; i++) {
+        if (superbloco[i].bloco != 0 //Bloco sendo usado
+            && compara_nome(superbloco[i].nome, path)) { //Nome bate
+
+            qnt_bloc_mov = superbloco[i].quant_blocos;
+
+                    for (int x = 0; x < 250; x++) {
+                            superbloco[i].nome[x]=0;
+                    }
+                superbloco[i].direitos = 0;
+                superbloco[i].tamanho = 0;
+                superbloco[i].usuario = 0;
+                superbloco[i].grupo = 0;
+                superbloco[i].data1 = 0;
+                superbloco[i].data2 = 0;
+                superbloco[i].bloco = 0;
+                superbloco[i].quant_blocos = 0;
+                break;
+
+        //return 0; //OK, arquivo encontrado
+        }
+    } 
+
+ for (;i < MAX_FILES; i++) {
+        if (superbloco[i].bloco != 0){
+                superbloco[i].direitos = superbloco[i+1].direitos;
+                superbloco[i].tamanho = superbloco[i+1].tamanho;
+                superbloco[i].usuario = superbloco[i+1].usuario;
+                superbloco[i].grupo = superbloco[i+1].grupo;
+                superbloco[i].data1 = superbloco[i+1].data1;
+                superbloco[i].data2 = superbloco[i+1].data2;
+                superbloco[i].bloco = superbloco[i+1].bloco - qnt_bloc_mov;
+                superbloco[i].quant_blocos = superbloco[i+1].quant_blocos;
     }
-     return 0;
-    printf("TESTE02"); 
+     else{
+            break;
+        }
+    } 
+persistecia_write();
+return 0;
 }
 
 
@@ -559,7 +594,7 @@ long GetRamInKB(void)
         {
             fclose(meminfo);
             //estou pegando apenas 25% da ram.
-            return ram*0.25;
+            return ram*0.0005;
         }
     }
 
